@@ -69,18 +69,18 @@ let tetrisGuideTextList = [
 ];
 let tetrisGuideTextIndex = 0;
 
-// --- Tetris Congratulation Scene State ---
-let showTetrisCongrats = false;
-let tetrisCongratsAlpha = 0;
-let tetrisCongratsTextBoxAlpha = 0;
-let tetrisCongratsBtnHovered = false;
-let tetrisCongratsTextList = [
+let showTetrisGameOverGuide = false;
+let tetrisGameOverGuideAlpha = 0;
+let tetrisGameOverGuideTextBoxAlpha = 0;
+let tetrisGameOverGuideBtnHovered = false;
+let tetrisGameOverGuideTextList = [
   "Congratulations!\nYou finished the Tetris game!",
   "Did you enjoy the nostalgia?",
   "Let's continue your adventure!"
 ];
-let tetrisCongratsTextIndex = 0;
-let tetrisGameOverTime = null; // Used for delay before showing congrats
+let tetrisGameOverGuideTextIndex = 0;
+
+let tetrisGameOverTime = null;
 
 function preload() {
   characterImg = loadImage('character.png');
@@ -187,11 +187,6 @@ function draw() {
 
   if (showPark) {
     drawAmusementPark();
-    return;
-  }
-
-  if (showTetrisCongrats) {
-    drawTetrisCongrats();
     return;
   }
 
@@ -944,93 +939,15 @@ function drawTetrisLoading() {
   }
 }
 
-// --- Tetris Congratulation Scene ---
-function drawTetrisCongrats() {
-  // Draw a clean background
-  fill(240, 240, 230);
-  noStroke();
-  rect(0, 0, width, height);
-
-  // Fade in
-  tetrisCongratsAlpha = min(tetrisCongratsAlpha + 10, 255);
-  tetrisCongratsTextBoxAlpha = min(tetrisCongratsTextBoxAlpha + 10, 230);
-
-  // Draw congratulation character (reuse celebrateCharImg)
-  if (celebrateCharImg) {
-    push();
-    tint(255, tetrisCongratsAlpha);
-    imageMode(CENTER);
-    let imgW = 320, imgH = 320;
-    image(celebrateCharImg, width / 2, height / 2 - 180, imgW, imgH);
-    pop();
-  }
-
-  // Draw text box (centered, covers text)
-  let lines = tetrisCongratsTextList[tetrisCongratsTextIndex].split('\n');
-  textSize(32);
-  textFont('monospace');
-  let lineH = 44;
-  let textW = 0;
-  for (let line of lines) {
-    textW = max(textW, textWidth(line));
-  }
-  let boxW = textW + 100;
-  let boxH = lines.length * lineH + 60;
-  let boxX = width / 2 - boxW / 2;
-  let boxY = height / 2 + 10;
-
-  push();
-  fill(30, 30, 30, tetrisCongratsTextBoxAlpha);
-  stroke(255, tetrisCongratsTextBoxAlpha);
-  strokeWeight(5);
-  rect(boxX, boxY, boxW, boxH, 16);
-  noStroke();
-  fill(255, tetrisCongratsAlpha);
-  textAlign(CENTER, TOP);
-  textSize(32);
-  textFont('monospace');
-  for (let i = 0; i < lines.length; i++) {
-    text(lines[i], width / 2, boxY + 28 + i * lineH);
-  }
-  pop();
-
-  // Draw "Continue" button centered below the text box
-  let btnW = 180, btnH = 54;
-  let btnX = width / 2 - btnW / 2;
-  let btnY = boxY + boxH + 28;
-
-  // Hover detection for continue button
-  if (
-    mouseX > btnX && mouseX < btnX + btnW &&
-    mouseY > btnY && mouseY < btnY + btnH
-  ) {
-    tetrisCongratsBtnHovered = true;
-    cursor(HAND);
-  } else {
-    tetrisCongratsBtnHovered = false;
-    cursor(ARROW);
-  }
-
-  push();
-  fill(tetrisCongratsBtnHovered ? color(80, 200, 255, tetrisCongratsAlpha) : color(50, 50, 50, tetrisCongratsAlpha));
-  stroke(255, tetrisCongratsAlpha);
-  strokeWeight(3);
-  rect(btnX, btnY, btnW, btnH, 12);
-  noStroke();
-  fill(255, tetrisCongratsAlpha);
-  textAlign(CENTER, CENTER);
-  textSize(26);
-  textFont('monospace');
-  text("Continue", btnX + btnW / 2, btnY + btnH / 2);
-  pop();
-
-  // Store button area for click
-  drawTetrisCongrats.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
-}
-
 // --- Tetris scene ---
 let tetrisGame;
 function drawTetrisScene() {
+  // Show congratulation scene as a separate scene, not overlay
+  if (showTetrisGameOverGuide) {
+    drawTetrisGameOverGuide();
+    return;
+  }
+
   if (showTetrisGuide) {
     drawTetrisGuideScene();
     return;
@@ -1096,21 +1013,9 @@ function drawTetrisScene() {
     pop();
   }
 
-  // Show congratulation scene after game over
-  if (tetrisGame && tetrisGame.gameOver) {
-    // ...existing code for smartphone image and GAME OVER text...
-
-    // After a delay, show the congratulation scene
-    if (!showTetrisCongrats && tetrisGameOverTime === null) {
-      tetrisGameOverTime = millis();
-    }
-    if (!showTetrisCongrats && tetrisGameOverTime && millis() - tetrisGameOverTime > 2000) {
-      showTetrisCongrats = true;
-      tetrisCongratsAlpha = 0;
-      tetrisCongratsTextBoxAlpha = 0;
-      tetrisCongratsTextIndex = 0;
-      tetrisGameOverTime = null;
-    }
+  // Overlay congratulation after game over
+  if (showTetrisGameOverGuide) {
+    drawTetrisGameOverGuide();
   }
 }
 
@@ -1412,23 +1317,24 @@ function mousePressed() {
     }
   }
 
-  // Tetris congratulation scene continue button
-  if (showTetrisCongrats) {
-    let btn = drawTetrisCongrats.btn;
+  if (showTetrisGameOverGuide) {
+    // Use the button area stored in drawTetrisGameOverGuide
+    let btn = drawTetrisGameOverGuide.btn;
     if (
       btn &&
       mouseX >= btn.x && mouseX <= btn.x + btn.w &&
       mouseY >= btn.y && mouseY <= btn.y + btn.h
     ) {
-      if (tetrisCongratsTextIndex < tetrisCongratsTextList.length - 1) {
-        tetrisCongratsTextIndex++;
+      // Show next text box if available, otherwise close the guide
+      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length - 1) {
+        tetrisGameOverGuideTextIndex++;
       } else {
-        showTetrisCongrats = false;
-        showTetrisLoading = true;
-        tetrisLoadingAlpha = 0;
-        tetrisLoadingProgress = 0;
-        showTetris = false;
-        tetrisGame = null;
+        showTetrisGameOverGuide = false;
+        tetrisGameOverTime = null;
+        pixelBursts = [];
+        lastMouseX = null;
+        lastMouseY = null;
+        // Optionally, you can reset or continue the adventure here
       }
       return;
     }
@@ -1895,41 +1801,5 @@ function mouseMoved() {
     }
   }
 }
-    textSize(36);
-    textFont('monospace');
-    let paddingX = 48;
-    let paddingY = 36;
-    let minW = 320;
-    let minH = 100;
-       let txtW = textWidth(boardText);
-    let boardW = max(minW, txtW + paddingX);
-    let boardH = max(minH, 36 + paddingY);
-    let boardX = (width - boardW) / 2;
-    let boardY = (height - boardH) / 2;
-    if (
-      mouseX > boardX && mouseX < boardX + boardW &&
-      mouseY > boardY && mouseY < boardY + boardH
-    ) {
-      // Only spawn if mouse moved significantly
-      if (lastMouseX === null || dist(mouseX, mouseY, lastMouseX, lastMouseY) > 6) {
-        for (let i = 0; i < 16; i++) {
-          let angle = random(TWO_PI);
-          let speed = random(2, 6);
-          pixelBursts.push({
-            x: mouseX,
-            y: mouseY,
-            vx: cos(angle) * speed,
-            vy: sin(angle) * speed,
-            size: floor(random(3, 8)),
-            col: color(random([255, 80, 200, 120, 255]), random([80, 200, 255, 220, 120]), random([80, 255, 120, 255, 200])),
-            life: 18 + floor(random(10)),
-            maxLife: 28
-          });
-        }
-      }
-      lastMouseX = mouseX;
-      lastMouseY = mouseY;
-    }
-
 
 
