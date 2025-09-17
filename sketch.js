@@ -75,12 +75,23 @@ let tetrisGameOverGuideTextBoxAlpha = 0;
 let tetrisGameOverGuideBtnHovered = false;
 let tetrisGameOverGuideTextList = [
   "Congratulations!\nYou finished the Tetris game!",
-  "Did you enjoy the nostalgia?",
-  "Let's continue your adventure!"
+  "Did you see those messy blocks like your phone's app icons?",
+  "It's too much, haha. Now let's continue your adventure!"
 ];
 let tetrisGameOverGuideTextIndex = 0;
 
 let tetrisGameOverTime = null;
+
+// --- Add new flags for final loading and final scene ---
+let showFinalLoading = false;
+let finalLoadingAlpha = 0;
+let finalLoadingProgress = 0;
+let showFinalScene = false;
+
+let cameraImg; // camera.png
+let elementImgs = []; // Element1.png to Element5.png
+let webcam;
+let webcamReady = false;
 
 function preload() {
   characterImg = loadImage('character.png');
@@ -92,6 +103,10 @@ function preload() {
   guideCharImg = loadImage('guide char.png'); // Use guide char.png as guide character
   celebrateCharImg = loadImage('celebrate char.png'); // Load celebration character
   smartphoneImg = loadImage('smartphone.png'); // Load your provided smartphone image
+  cameraImg = loadImage('camera.png');
+  for (let i = 1; i <= 5; i++) {
+    elementImgs.push(loadImage(`Element${i}.png`));
+  }
   
   // Optionally, load arrow overlays if you want custom arrow images
   // tetrisArrowImgs[0] = loadImage('arrow_up.png');
@@ -149,6 +164,12 @@ function setup() {
       size: random(24, 38)
     });
   }
+  // Setup webcam but hide it (draw manually)
+  webcam = createCapture(VIDEO, () => {
+    webcamReady = true;
+  });
+  webcam.size(320, 240);
+  webcam.hide();
 }
 
 let nextBtn = {
@@ -165,6 +186,16 @@ let loadingProgress = 0;
 let loadingDone = false;
 
 function draw() {
+  // --- Final loading/final scene must be checked first! ---
+  if (showFinalLoading) {
+    drawFinalLoading();
+    return;
+  }
+  if (showFinalScene) {
+    drawFinalCameraScene();
+    return;
+  }
+
   if (loading) {
     drawLoadingTransition();
     return;
@@ -939,8 +970,64 @@ function drawTetrisLoading() {
   }
 }
 
-// --- Tetris scene ---
-let tetrisGame;
+// --- Final loading scene ---
+function drawFinalLoading() {
+  finalLoadingAlpha = min(finalLoadingAlpha + 8, 255);
+  finalLoadingProgress += 0.012;
+
+  fill(30, 30, 30, finalLoadingAlpha);
+  noStroke();
+  rect(0, 0, width, height);
+
+  // Draw char2.png centered with loading text
+  if (char2Img) {
+    let imgW = 200;
+    let imgH = 200;
+    imageMode(CENTER);
+    image(char2Img, width / 2, height / 2.2 - 80, imgW, imgH);
+    imageMode(CORNER);
+  }
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(40);
+  textFont('monospace');
+  text('Loading...', width / 2, height / 2 + 10);
+
+  let barW = 340;
+  let barH = 28;
+  let barX = width / 2 - barW / 2;
+  let barY = height / 2 + 60;
+  stroke(255);
+  strokeWeight(5);
+  noFill();
+  rect(barX, barY, barW, barH, 8);
+  noStroke();
+  fill(80, 200, 255);
+  let progressW = constrain(barW * finalLoadingProgress, 0, barW);
+  rect(barX, barY, progressW, barH, 8);
+
+  if (finalLoadingProgress >= 1) {
+    finalLoadingAlpha = max(finalLoadingAlpha - 12, 0);
+    if (finalLoadingAlpha <= 0) {
+      showFinalLoading = false;
+      showFinalScene = true;
+      finalLoadingProgress = 0;
+      finalLoadingAlpha = 0;
+    }
+  }
+}
+
+// --- Final scene placeholder ---
+function drawFinalScene() {
+  background(30, 30, 30);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(48);
+  textFont('monospace');
+  text('The End\n(or your next adventure!)', width / 2, height / 2);
+}
+
 function drawTetrisScene() {
   // Show congratulation scene as a separate scene, not overlay
   if (showTetrisGameOverGuide) {
@@ -1212,6 +1299,35 @@ function keyPressed() {
 
 // --- Mouse pressed logic ---
 function mousePressed() {
+  // --- Handle Tetris Game Over Guide button click FIRST ---
+  if (showTetrisGameOverGuide) {
+    // Use the button area stored in drawTetrisGameOverGuide
+    let btn = drawTetrisGameOverGuide.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      // Show next text box if available, otherwise close the guide
+      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length - 1) {
+        tetrisGameOverGuideTextIndex++;
+      } else {
+        showTetrisGameOverGuide = false;
+        tetrisGameOverTime = null;
+        pixelBursts = [];
+        lastMouseX = null;
+        lastMouseY = null;
+        // --- Start final loading scene here ---
+        showFinalLoading = true;
+        finalLoadingAlpha = 0;
+        finalLoadingProgress = 0;
+        showFinalScene = false;
+      }
+      return;
+    }
+    return;
+  }
+
   if (showGuide) {
     // Continue button in guide scene
     let btn = drawGuideScene.btn;
@@ -1299,46 +1415,15 @@ function mousePressed() {
     }
     return;
   }
-  if (
-    mouseX > nextBtn.x &&
-    mouseX < nextBtn.x + nextBtn.w &&
-    mouseY > nextBtn.y &&
-    mouseY < nextBtn.y + nextBtn.h
-  ) {
-    // Cycle through board texts
-    boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
-    boardText = boardTexts[boardTextIndex];
-    // If last text, start loading transition
-    if (boardTextIndex === 0) {
-      loading = true;
-      loadingAlpha = 0;
-      loadingProgress = 0;
-      loadingDone = false;
-    }
-  }
-
-  if (showTetrisGameOverGuide) {
-    // Use the button area stored in drawTetrisGameOverGuide
-    let btn = drawTetrisGameOverGuide.btn;
-    if (
-      btn &&
-      mouseX >= btn.x && mouseX <= btn.x + btn.w &&
-      mouseY >= btn.y && mouseY <= btn.y + btn.h
-    ) {
-      // Show next text box if available, otherwise close the guide
-      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length - 1) {
-        tetrisGameOverGuideTextIndex++;
-      } else {
-        showTetrisGameOverGuide = false;
-        tetrisGameOverTime = null;
-        pixelBursts = [];
-        lastMouseX = null;
-        lastMouseY = null;
-        // Optionally, you can reset or continue the adventure here
-      }
-      return;
-    }
-    return;
+  // Cycle through board texts
+  boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
+  boardText = boardTexts[boardTextIndex];
+  // If last text, start loading transition
+  if (boardTextIndex === 0) {
+    loading = true;
+    loadingAlpha = 0;
+    loadingProgress = 0;
+    loadingDone = false;
   }
 }
 
@@ -1384,137 +1469,114 @@ function mouseReleased() {
   }
 }
 
-// Helper to draw a pixel-style cloud
-function drawCloud(x, y, w, h) {
+// --- Final camera scene ---
+function drawFinalCameraScene() {
+  background(30, 30, 30);
+
+  // Draw animated elements around the camera
+  let cx = width / 2;
+  let cy = height / 2;
+  let radius = 220;
+  let t = millis() * 0.001;
+  for (let i = 0; i < elementImgs.length; i++) {
+    let angle = t + i * (TWO_PI / elementImgs.length);
+    let ex = cx + cos(angle) * radius;
+    let ey = cy + sin(angle) * radius;
+    let s = 90 + 18 * sin(t * 1.2 + i); // animated size
+    if (elementImgs[i]) {
+      push();
+      imageMode(CENTER);
+      translate(ex, ey);
+      rotate(0.1 * sin(t + i)); // slight rotation
+      image(elementImgs[i], 0, 0, s, s);
+      pop();
+    }
+  }
+
+  // Draw camera frame in center
+  let camW = 340, camH = 260;
+  if (cameraImg) {
+    imageMode(CENTER);
+    image(cameraImg, cx, cy, camW, camH);
+  }
+
+  // Draw webcam feed inside camera frame (with rounded corners)
+  if (webcamReady && webcam) {
+    push();
+    imageMode(CENTER);
+    // Clip to rounded rectangle
+    let clipW = camW * 0.78, clipH = camH * 0.62;
+    translate(cx, cy - 8);
+    drawingContext.save();
+    drawingContext.beginPath();
+    if (drawingContext.roundRect) {
+      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
+    } else {
+      // fallback for browsers without roundRect
+      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
+    }
+    drawingContext.clip();
+    image(webcam, 0, 0, clipW, clipH);
+    drawingContext.restore();
+    pop();
+  } else {
+    // Show loading text if webcam not ready
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text("Waiting for camera...", cx, cy);
+  }
+
+  // Optional: Add a title
+  fill(255);
+  textAlign(CENTER, TOP);
+  textSize(36);
+  textFont('monospace');
+  text('Say Cheese!', cx, cy + camH / 2 + 32);
+}
+  fill(30, 30, 30, finalLoadingAlpha);
   noStroke();
-  fill(255, 255, 255, 220);
-  rect(x, y, w, h, 8);
-  rect(x + w * 0.3, y - h * 0.3, w * 0.5, h * 0.7, 12);
-  rect(x + w * 0.6, y + h * 0.2, w * 0.3, h * 0.5, 8);
-}
+  rect(0, 0, width, height);
 
-// Helper to draw a pixel-style bird (simple V shape with animated wings)
-function drawBird(x, y, size, wingPhase) {
-  push();
-  stroke(55, 65, 85);
-  strokeWeight(3);
+  // Draw char2.png centered with loading text
+  if (char2Img) {
+    let imgW = 200;
+    let imgH = 200;
+    imageMode(CENTER);
+    image(char2Img, width / 2, height / 2.2 - 80, imgW, imgH);
+    imageMode(CORNER);
+  }
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(40);
+  textFont('monospace');
+  text('Loading...', width / 2, height / 2 + 10);
+
+  let barW = 340;
+  let barH = 28;
+  let barX = width / 2 - barW / 2;
+  let barY = height / 2 + 60;
+  stroke(255);
+  strokeWeight(5);
   noFill();
-  let wingSpan = size;
-  let wingY = sin(wingPhase) * (size * 0.25);
-  beginShape();
-  vertex(x - wingSpan / 2, y + wingY);
-  vertex(x, y - wingY * 1.5);
-  vertex(x + wingSpan / 2, y + wingY);
-  endShape();
-  pop();
-}
+  rect(barX, barY, barW, barH, 8);
+  noStroke();
+  fill(80, 200, 255);
+  let progressW = constrain(barW * finalLoadingProgress, 0, barW);
+  rect(barX, barY, progressW, barH, 8);
 
-// --- Tetris Game Logic (draws real Tetris blocks) ---
-class TetrisGame {
-  constructor(offsetX, offsetY, cell) {
-    this.gridW = 10;
-    this.gridH = 20;
-    this.cell = cell || 24;
-    this.offsetX = offsetX || width / 2 - this.gridW * this.cell / 2;
-    this.offsetY = offsetY || height / 2 - this.gridH * this.cell / 2 - 30;
-    this.grid = [];
-    for (let y = 0; y < this.gridH; y++) {
-      this.grid[y] = Array(this.gridW).fill(0);
-    }
-    this.bag = [];
-    this.current = this.spawnBlock();
-    this.dropTimer = millis();
-    this.dropInterval = 600;
-    this.gameOver = false;
-    this.score = 0;
-  }
-  spawnBlock() {
-    // Tetris 7-bag system
-    if (this.bag.length === 0) {
-      this.bag = shuffle([1, 2, 3, 4, 5, 6, 7]);
-    }
-    let type = this.bag.pop();
-    let block = {
-      x: 3, y: 0,
-      type: type,
-      shape: this.getShape(type, 0),
-      rot: 0
-    };
-    return block;
-  }
-  getShape(type, rot) {
-    // 0: I, 1: O, 2: T, 3: S, 4: Z, 5: J, 6: L
-    // Each shape is a 4x4 matrix
-    const shapes = [
-      // I
-      [
-        [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-        [[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]]
-      ],
-      // O
-      [
-        [[0,1,1,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]]
-      ],
-      // T
-      [
-        [[0,1,0],[1,1,1],[0,0,0]],
-        [[0,1,0],[0,1,1],[0,1,0]],
-        [[0,0,0],[1,1,1],[0,1,0]],
-        [[0,1,0],[1,1,0],[0,1,0]]
-      ],
-      // S
-      [
-        [[0,1,1],[1,1,0],[0,0,0]],
-        [[0,1,0],[0,1,1],[0,0,1]]
-      ],
-      // Z
-      [
-        [[1,1,0],[0,1,1],[0,0,0]],
-        [[0,0,1],[0,1,1],[0,1,0]]
-      ],
-      // J
-      [
-        [[1,0,0],[1,1,1],[0,0,0]],
-        [[0,1,1],[0,1,0],[0,1,0]],
-        [[0,0,0],[1,1,1],[0,0,1]],
-        [[0,1,0],[0,1,0],[1,1,0]]
-      ],
-      // L
-      [
-        [[0,0,1],[1,1,1],[0,0,0]],
-        [[0,1,0],[0,1,0],[0,1,1]],
-        [[0,0,0],[1,1,1],[1,0,0]],
-        [[1,1,0],[0,1,0],[0,1,0]]
-      ]
-    ];
-    // I
-    if (type === 1) return shapes[0][rot % 2];
-    // O
-    if (type === 2) return shapes[1][0];
-    // T
-    if (type === 3) return shapes[2][rot % 4];
-    // S
-    if (type === 4) return shapes[3][rot % 2];
-    // Z
-    if (type === 5) return shapes[4][rot % 2];
-    // J
-    if (type === 6) return shapes[5][rot % 4];
-    // L
-    if (type === 7) return shapes[6][rot % 4];
-  }
-  getColor(type) {
-    // Tetris colors
-    switch (type) {
-      case 1: return color(80, 200, 255); // I - cyan
-      case 2: return color(255, 220, 80); // O - yellow
-      case 3: return color(180, 80, 255); // T - purple
-      case 4: return color(120, 200, 80); // S - green
-      case 5: return color(255, 80, 80);  // Z - red
-      case 6: return color(60, 120, 255); // J - blue
-      case 7: return color(255, 140, 40); // L - orange
-      default: return color(200);
+  if (finalLoadingProgress >= 1) {
+    finalLoadingAlpha = max(finalLoadingAlpha - 12, 0);
+    if (finalLoadingAlpha <= 0) {
+      showFinalLoading = false;
+      showFinalScene = true;
+      finalLoadingProgress = 0;
+      finalLoadingAlpha = 0;
     }
   }
+
+      
   display() {
     // Draw grid background
     push();
@@ -1653,7 +1715,7 @@ class TetrisGame {
     }
     return true;
   }
-  rotate() {
+  rotate() {  
     if (!this.current) return;
     let rot = this.current.rot + 1;
     let newShape = this.getShape(this.current.type, rot);
@@ -1672,7 +1734,7 @@ class TetrisGame {
     this.current.rot = 0;
     this.current.shape = this.getShape(newType, 0);
   }
-}
+
 
 // --- Tetris Game Over Guide ---
 function drawTetrisGameOverGuide() {
@@ -1801,5 +1863,3 @@ function mouseMoved() {
     }
   }
 }
-
-
