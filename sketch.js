@@ -1,4 +1,7 @@
 let dots = [];
+let pixelBursts = []; // <-- Add this line
+let clouds = []; // <-- Add this line
+let birds = [];  // <-- Add this line
 let characterImg;
 let charY = 0;
 let charTargetY = 0;
@@ -87,6 +90,25 @@ let showFinalLoading = false;
 let finalLoadingAlpha = 0;
 let finalLoadingProgress = 0;
 let showFinalScene = false;
+
+// --- Add new flag for camera scene ---
+let showCameraScene = false;
+
+// Add new flag for camera loading scene
+let showCameraLoading = false;
+let cameraLoadingAlpha = 0;
+let cameraLoadingProgress = 0;
+
+// --- Camera intro scene flag and text ---
+let showCameraIntro = false;
+let cameraIntroAlpha = 0;
+let cameraIntroTextList = [
+  "Ready for the next memory?",
+  "Let's take a selfie to capture this moment!",
+  "Now smile and say cheese!"
+];
+let cameraIntroTextIndex = 0;
+let cameraIntroBtnHovered = false;
 
 let cameraImg; // camera.png
 let elementImgs = []; // Element1.png to Element5.png
@@ -186,14 +208,34 @@ let loadingProgress = 0;
 let loadingDone = false;
 
 function draw() {
-  // --- Final loading/final scene must be checked first! ---
-  if (showFinalLoading) {
-    drawFinalLoading();
+  // --- Show camera intro scene before camera scene ---
+  if (showCameraIntro) {
+    drawCameraIntroScene();
     return;
   }
-  if (showFinalScene) {
-    drawFinalCameraScene();
+
+  // --- Show camera loading scene after Tetris, before camera scene ---
+  if (showCameraLoading) {
+    drawCameraLoading();
     return;
+  }
+
+  // --- Show camera scene after Tetris ---
+  if (showCameraScene) {
+    drawCameraScene();
+    return;
+  }
+
+  // --- Only show loading/final scene if not in camera scene ---
+  if (!showCameraScene) {
+    if (showFinalLoading) {
+      drawFinalLoading();
+      return;
+    }
+    if (showFinalScene) {
+      drawFinalCameraScene();
+      return;
+    }
   }
 
   if (loading) {
@@ -203,6 +245,12 @@ function draw() {
 
   if (showTetrisLoading) {
     drawTetrisLoading();
+    return;
+  }
+
+  // --- Show Tetris intro scene before Tetris game ---
+  if (showTetrisGuide) {
+    drawTetrisGuideScene();
     return;
   }
 
@@ -965,6 +1013,7 @@ function drawTetrisLoading() {
       showTetrisGuide = true;
       tetrisGuideAlpha = 0;
       tetrisGuideTextBoxAlpha = 0;
+      tetrisGuideBtnHovered = false;
       tetrisGuideTextIndex = 0;
     }
   }
@@ -1029,18 +1078,27 @@ function drawFinalScene() {
 }
 
 function drawTetrisScene() {
-  // Show congratulation scene as a separate scene, not overlay
-  if (showTetrisGameOverGuide) {
-    drawTetrisGameOverGuide();
-    return;
+  // --- Flicker smartphone overlay and Game Over text if game over ---
+  if (tetrisGame && tetrisGame.gameOver && smartphoneImg) {
+    // Flicker alpha using a slow sine wave
+    let flickerAlpha = 180 + 60 * sin(millis() * 0.002);
+    push();
+    imageMode(CENTER);
+    tint(255, flickerAlpha);
+    let imgW = 320, imgH = 520;
+    image(smartphoneImg, width / 2, height / 2, imgW, imgH);
+    pop();
+
+    fill(255, 80, 80, flickerAlpha);
+    textAlign(CENTER, CENTER);
+    textFont('monospace');
+    textSize(56);
+    text("GAME OVER", width / 2, height / 2 - 120);
   }
 
-  if (showTetrisGuide) {
-    drawTetrisGuideScene();
-    return;
-  }
   background(240, 240, 230);
   drawTetrisFrame();
+
   // Tetris grid area inside the frame
   let gridW = 10, gridH = 20;
   let cell = min(width, height) * 0.032;
@@ -1301,15 +1359,13 @@ function keyPressed() {
 function mousePressed() {
   // --- Handle Tetris Game Over Guide button click FIRST ---
   if (showTetrisGameOverGuide) {
-    // Use the button area stored in drawTetrisGameOverGuide
     let btn = drawTetrisGameOverGuide.btn;
     if (
       btn &&
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
-      // Show next text box if available, otherwise close the guide
-      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length - 1) {
+      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length -  1) {
         tetrisGameOverGuideTextIndex++;
       } else {
         showTetrisGameOverGuide = false;
@@ -1317,11 +1373,36 @@ function mousePressed() {
         pixelBursts = [];
         lastMouseX = null;
         lastMouseY = null;
-        // --- Start final loading scene here ---
-        showFinalLoading = true;
-        finalLoadingAlpha = 0;
-        finalLoadingProgress = 0;
+        // --- Show camera intro scene after Tetris game over guide ---
+        showCameraIntro = true;
+        cameraIntroAlpha = 0;
+        cameraIntroTextIndex = 0;
+        showCameraLoading = false;
+        showCameraScene = false;
+        loading = false;
+        showFinalLoading = false;
         showFinalScene = false;
+      }
+      return;
+    }
+    return;
+  }
+
+  // --- Camera intro scene continue button logic ---
+  if (showCameraIntro) {
+    let btn = drawCameraIntroScene.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (cameraIntroTextIndex < cameraIntroTextList.length - 1) {
+        cameraIntroTextIndex++;
+      } else {
+        showCameraIntro = false;
+        showCameraLoading = true;
+        cameraLoadingAlpha = 0;
+        cameraLoadingProgress = 0;
       }
       return;
     }
@@ -1415,15 +1496,31 @@ function mousePressed() {
     }
     return;
   }
-  // Cycle through board texts
-  boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
-  boardText = boardTexts[boardTextIndex];
-  // If last text, start loading transition
-  if (boardTextIndex === 0) {
-    loading = true;
-    loadingAlpha = 0;
-    loadingProgress = 0;
-    loadingDone = false;
+
+  // --- Opening scene "Next" button logic ---
+  if (
+    !showCameraScene && !showGuide && !showPark && !loading && !showTetrisLoading &&
+    !showTetris && !showCelebrateGuide && !showTetrisGuide && !showTetrisGameOverGuide &&
+    !showFinalLoading && !showFinalScene
+  ) {
+    // Only advance if mouse is over the Next button
+    if (
+      mouseX > nextBtn.x &&
+      mouseX < nextBtn.x + nextBtn.w &&
+      mouseY > nextBtn.y &&
+      mouseY < nextBtn.y + nextBtn.h
+    ) {
+      boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
+      boardText = boardTexts[boardTextIndex];
+      // If last text, start loading transition
+      if (boardTextIndex === 0) {
+        loading = true;
+        loadingAlpha = 0;
+        loadingProgress = 0;
+        loadingDone = false;
+      }
+    }
+    return;
   }
 }
 
@@ -1482,12 +1579,12 @@ function drawFinalCameraScene() {
     let angle = t + i * (TWO_PI / elementImgs.length);
     let ex = cx + cos(angle) * radius;
     let ey = cy + sin(angle) * radius;
-    let s = 90 + 18 * sin(t * 1.2 + i); // animated size
+    let s = 90 + 18 * sin(t * 1.2 + i);
     if (elementImgs[i]) {
       push();
       imageMode(CENTER);
       translate(ex, ey);
-      rotate(0.1 * sin(t + i)); // slight rotation
+      rotate(0.1 * sin(t + i));
       image(elementImgs[i], 0, 0, s, s);
       pop();
     }
@@ -1504,7 +1601,7 @@ function drawFinalCameraScene() {
   if (webcamReady && webcam) {
     push();
     imageMode(CENTER);
-    // Clip to rounded rectangle
+    // Clip to rounded rectangle (matches the camera "screen" area)
     let clipW = camW * 0.78, clipH = camH * 0.62;
     translate(cx, cy - 8);
     drawingContext.save();
@@ -1512,7 +1609,6 @@ function drawFinalCameraScene() {
     if (drawingContext.roundRect) {
       drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
     } else {
-      // fallback for browsers without roundRect
       drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
     }
     drawingContext.clip();
@@ -1534,7 +1630,581 @@ function drawFinalCameraScene() {
   textFont('monospace');
   text('Say Cheese!', cx, cy + camH / 2 + 32);
 }
-  fill(30, 30, 30, finalLoadingAlpha);
+
+// --- Camera scene after Tetris ---
+function drawCameraScene() {
+  // Cream background
+  background(255, 251, 235);
+
+  // --- Decorative pastel circles ---
+  for (let i = 0; i < 8; i++) {
+    let angle = (TWO_PI / 8) * i + millis() * 0.0002;
+    let r = 320 + 24 * sin(millis() * 0.0007 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    fill(255, 220, 120, 90);
+    noStroke();
+    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
+  }
+  for (let i = 0; i < 5; i++) {
+    let angle = (TWO_PI / 5) * i + millis() * 0.0003;
+    let r = 200 + 40 * cos(millis() * 0.001 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    fill(120, 200, 255, 70);
+    noStroke();
+    ellipse(x, y, 36, 36);
+  }
+  // --- Decorative stars ---
+  for (let i = 0; i < 4; i++) {
+    let angle = (TWO_PI / 4) * i + millis() * 0.0005;
+    let r = 260 + 30 * sin(millis() * 0.0012 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    push();
+    translate(x, y);
+    rotate(millis() * 0.0007 + i);
+    fill(255, 180, 220, 100);
+    noStroke();
+    for (let j = 0; j < 5; j++) {
+      let a = TWO_PI * j / 5;
+      let sx = cos(a) * 14;
+      let sy = sin(a) * 14;
+      let sx2 = cos(a + PI / 5) * 6;
+      let sy2 = sin(a + PI / 5) * 6;
+      triangle(0, 0, sx, sy, sx2, sy2);
+    }
+    pop();
+  }
+
+  // Draw animated elements around the camera
+  let cx = width / 2;
+  let cy = height / 2;
+  let radius = 220;
+  let t = millis() * 0.001;
+  for (let i = 0; i < elementImgs.length; i++) {
+    let angle = t + i * (TWO_PI / elementImgs.length);
+    let ex = cx + cos(angle) * radius;
+    let ey = cy + sin(angle) * radius;
+    let s = 90 + 18 * sin(t * 1.2 + i);
+    if (elementImgs[i]) {
+      push();
+      imageMode(CENTER);
+      translate(ex, ey);
+      rotate(0.1 * sin(t + i));
+      image(elementImgs[i], 0, 0, s, s);
+      pop();
+    }
+  }
+
+  // --- Scale up Camera.png ---
+  let camW = 480, camH = 368; // was 340, 260
+  if (cameraImg) {
+    imageMode(CENTER);
+    image(cameraImg, cx, cy, camW, camH);
+  }
+
+  if (webcamReady && webcam) {
+    push();
+    imageMode(CENTER);
+    let clipW = camW * 0.78, clipH = camH * 0.62;
+    translate(cx, cy - 8);
+    drawingContext.save();
+    drawingContext.beginPath();
+    if (drawingContext.roundRect) {
+      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
+    } else {
+      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
+    }
+    drawingContext.clip();
+    image(webcam, 0, 0, clipW, clipH);
+    drawingContext.restore();
+    pop();
+  } else {
+    fill(80, 80, 80);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text("Waiting for camera...", cx, cy);
+  }
+
+  fill(80, 80, 80);
+  textAlign(CENTER, TOP);
+  textSize(36);
+  textFont('monospace');
+  text('Say Cheese!', cx, cy + camH / 2 + 32);
+}
+
+// --- Camera intro scene ---
+function drawCameraIntroScene() {
+  cameraIntroAlpha = min(cameraIntroAlpha + 10, 255);
+
+  // Cream background
+  background(255, 251, 235);
+
+  // Decorative elements (reuse from camera scene)
+  for (let i = 0; i < 6; i++) {
+    let angle = (TWO_PI / 6) * i + millis() * 0.0002;
+    let r = 320 + 24 * sin(millis() * 0.0007 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    fill(255, 220, 120, 70);
+    noStroke();
+    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
+  }
+
+  // --- Draw guide character (centered, above text box) ---
+  if (guideCharImg) {
+    push();
+    tint(255, cameraIntroAlpha);
+    imageMode(CENTER);
+    let imgW = 320, imgH = 320;
+    image(guideCharImg, width / 2, height / 2 - 140, imgW, imgH);
+    pop();
+  }
+
+  // Draw text box with intro text
+  let lines = cameraIntroTextList[cameraIntroTextIndex].split('\n');
+  textSize(36);
+  textFont('monospace');
+  let lineH = 48;
+  let textW = 0;
+  for (let line of lines) textW = max(textW, textWidth(line));
+  let boxW = textW + 80;
+  let boxH = lines.length * lineH + 48;
+  let boxX = width / 2 - boxW / 2;
+  let boxY = height / 2 + 30;
+
+  push();
+  fill(30, 30, 30, 220);
+  stroke(255, cameraIntroAlpha);
+  strokeWeight(5);
+  rect(boxX, boxY, boxW, boxH, 16);
+  noStroke();
+  fill(255, cameraIntroAlpha);
+  textAlign(CENTER, TOP);
+  textSize(36);
+  textFont('monospace');
+  for (let i = 0; i < lines.length; i++) {
+    text(lines[i], width / 2, boxY + 24 + i * lineH);
+  }
+  pop();
+
+  // Draw "Continue" button
+  let btnW = 180, btnH = 54;
+  let btnX = width / 2 - btnW / 2;
+  let btnY = boxY + boxH + 28;
+  if (
+    mouseX > btnX && mouseX < btnX + btnW &&
+    mouseY > btnY && mouseY < btnY + btnH
+  ) {
+    cameraIntroBtnHovered = true;
+    cursor(HAND);
+  } else {
+    cameraIntroBtnHovered = false;
+    cursor(ARROW);
+  }
+  push();
+  fill(cameraIntroBtnHovered ? color(80, 200, 255, cameraIntroAlpha) : color(50, 50, 50, cameraIntroAlpha));
+  stroke(255, cameraIntroAlpha);
+  strokeWeight(3);
+  rect(btnX, btnY, btnW, btnH, 12);
+  noStroke();
+  fill(255, cameraIntroAlpha);
+  textAlign(CENTER, CENTER);
+  textSize(26);
+  textFont('monospace');
+  text("Continue", btnX + btnW / 2, btnY + btnH / 2);
+  pop();
+
+  // Store button area for click
+  drawCameraIntroScene.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
+}
+
+// --- Update mousePressed to handle camera intro scene ---
+function mousePressed() {
+  // --- Handle Tetris Game Over Guide button click FIRST ---
+  if (showTetrisGameOverGuide) {
+    let btn = drawTetrisGameOverGuide.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length -  1) {
+        tetrisGameOverGuideTextIndex++;
+      } else {
+        showTetrisGameOverGuide = false;
+        tetrisGameOverTime = null;
+        pixelBursts = [];
+        lastMouseX = null;
+        lastMouseY = null;
+        // --- Show camera intro scene after Tetris game over guide ---
+        showCameraIntro = true;
+        cameraIntroAlpha = 0;
+        cameraIntroTextIndex = 0;
+        showCameraLoading = false;
+        showCameraScene = false;
+        loading = false;
+        showFinalLoading = false;
+        showFinalScene = false;
+      }
+      return;
+    }
+    return;
+  }
+
+  // --- Camera intro scene continue button logic ---
+  if (showCameraIntro) {
+    let btn = drawCameraIntroScene.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (cameraIntroTextIndex < cameraIntroTextList.length - 1) {
+        cameraIntroTextIndex++;
+      } else {
+        showCameraIntro = false;
+        showCameraLoading = true;
+        cameraLoadingAlpha = 0;
+        cameraLoadingProgress = 0;
+      }
+      return;
+    }
+    return;
+  }
+
+  if (showGuide) {
+    // Continue button in guide scene
+    let btn = drawGuideScene.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (guideTextIndex < guideTextList.length - 1) {
+        guideTextIndex++;
+      } else {
+        showGuide = false;
+        showPark = true;
+      }
+      return;
+    }
+    return;
+  }
+
+  // Celebration guide next button logic
+  if (showCelebrateGuide) {
+    let btn = drawCelebrateGuide.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (celebrateGuideTextIndex < celebrateGuideTextList.length - 1) {
+        celebrateGuideTextIndex++;
+      } else {
+        showCelebrateGuide = false;
+        // Start tetris loading
+        showTetrisLoading = true;
+        tetrisLoadingAlpha = 0;
+        tetrisLoadingProgress = 0;
+        showTetris = false;
+        // Reset tetris game state
+        tetrisGame = null;
+      }
+      return;
+    }
+    return;
+  }
+
+  if (showTetrisGuide) {
+    let btn = drawTetrisGuideScene.btn;
+    if (
+      btn &&
+      mouseX > btn.x && mouseX < btn.x + btn.w &&
+      mouseY > btn.y && mouseY < btn.y + btn.h
+    ) {
+      if (tetrisGuideTextIndex < tetrisGuideTextList.length - 1) {
+        tetrisGuideTextIndex++;
+      } else {
+        showTetrisGuide = false;
+      }
+      return;
+    }
+    return;
+  }
+
+  if (showTetrisLoading) {
+    return;
+  }
+
+  if (showTetris) {
+    // Optionally handle mouse for tetris
+    return;
+  }
+
+  if (showPark || loading) {
+    // Check if mouse is over an unattached icon
+    for (let i = 0; i < icons.length; i++) {
+      let icon = icons[i];
+      if (!icon.attached &&
+        mouseX > icon.x && mouseX < icon.x + icon.w &&
+        mouseY > icon.y && mouseY < icon.y + icon.h
+      ) {
+        draggingIcon = icon;
+        dragOffset.x = icon.x - mouseX;
+        dragOffset.y = icon.y - mouseY;
+        icon.dragging = true;
+        break;
+      }
+    }
+    return;
+  }
+
+  // --- Opening scene "Next" button logic ---
+  if (
+    !showCameraScene && !showGuide && !showPark && !loading && !showTetrisLoading &&
+    !showTetris && !showCelebrateGuide && !showTetrisGuide && !showTetrisGameOverGuide &&
+    !showFinalLoading && !showFinalScene
+  ) {
+    // Only advance if mouse is over the Next button
+    if (
+      mouseX > nextBtn.x &&
+      mouseX < nextBtn.x + nextBtn.w &&
+      mouseY > nextBtn.y &&
+      mouseY < nextBtn.y + nextBtn.h
+    ) {
+      boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
+      boardText = boardTexts[boardTextIndex];
+      // If last text, start loading transition
+      if (boardTextIndex === 0) {
+        loading = true;
+        loadingAlpha = 0;
+        loadingProgress = 0;
+        loadingDone = false;
+      }
+    }
+    return;
+  }
+}
+
+function mouseDragged() {
+  if (showPark && draggingIcon) {
+    draggingIcon.x = mouseX + dragOffset.x;
+    draggingIcon.y = mouseY + dragOffset.y;
+  }
+}
+
+function mouseReleased() {
+  if (showPark && draggingIcon) {
+    // Check if dropped on a seat
+    let found = false;
+    for (let i = 0; i < ferrisWheel.seats; i++) {
+      if (!ferrisWheel.attached[i]) {
+        // Calculate seat position (center of seat)
+        let a = TWO_PI * i / ferrisWheel.seats + ferrisWheel.angle;
+        let seatR = ferrisWheel.r - 60; // match the seat radius in draw
+        let sx = ferrisWheel.x + seatR * cos(a);
+        let sy = ferrisWheel.y + seatR * sin(a);
+        // If icon center is close to seat center
+        let iconCenterX = mouseX + dragOffset.x + draggingIcon.w / 2;
+        let iconCenterY = mouseY + dragOffset.y + draggingIcon.h / 2;
+        if (dist(iconCenterX, iconCenterY, sx, sy) < 48) {
+          ferrisWheel.attached[i] = draggingIcon;
+          draggingIcon.attached = true;
+          // Snap icon to seat center
+          draggingIcon.x = sx - draggingIcon.w / 2;
+          draggingIcon.y = sy - draggingIcon.h / 2;
+          found = true;
+          break;
+        }
+      }
+    }
+    // If not attached, return icon to bottom
+    if (!found) {
+      draggingIcon.x = 80 + icons.indexOf(draggingIcon) * 110;
+      draggingIcon.y = height - 120;
+    }
+    draggingIcon.dragging = false;
+    draggingIcon = null;
+  }
+}
+
+// --- Final camera scene ---
+function drawFinalCameraScene() {
+  background(30, 30, 30);
+
+  // Draw animated elements around the camera
+  let cx = width / 2;
+  let cy = height / 2;
+  let radius = 220;
+  let t = millis() * 0.001;
+  for (let i = 0; i < elementImgs.length; i++) {
+    let angle = t + i * (TWO_PI / elementImgs.length);
+    let ex = cx + cos(angle) * radius;
+    let ey = cy + sin(angle) * radius;
+    let s = 90 + 18 * sin(t * 1.2 + i);
+    if (elementImgs[i]) {
+      push();
+      imageMode(CENTER);
+      translate(ex, ey);
+      rotate(0.1 * sin(t + i));
+      image(elementImgs[i], 0, 0, s, s);
+      pop();
+    }
+  }
+
+  // Draw camera frame in center
+  let camW = 340, camH = 260;
+  if (cameraImg) {
+    imageMode(CENTER);
+    image(cameraImg, cx, cy, camW, camH);
+  }
+
+  // Draw webcam feed inside camera frame (with rounded corners)
+  if (webcamReady && webcam) {
+    push();
+    imageMode(CENTER);
+    // Clip to rounded rectangle (matches the camera "screen" area)
+    let clipW = camW * 0.78, clipH = camH * 0.62;
+    translate(cx, cy - 8);
+    drawingContext.save();
+    drawingContext.beginPath();
+    if (drawingContext.roundRect) {
+      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
+    } else {
+      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
+    }
+    drawingContext.clip();
+    image(webcam, 0, 0, clipW, clipH);
+    drawingContext.restore();
+    pop();
+  } else {
+    // Show loading text if webcam not ready
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text("Waiting for camera...", cx, cy);
+  }
+
+  // Optional: Add a title
+  fill(255);
+  textAlign(CENTER, TOP);
+  textSize(36);
+  textFont('monospace');
+  text('Say Cheese!', cx, cy + camH / 2 + 32);
+}
+
+// --- Camera scene after Tetris ---
+function drawCameraScene() {
+  // Cream background
+  background(255, 251, 235);
+
+  // --- Decorative pastel circles ---
+  for (let i = 0; i < 8; i++) {
+    let angle = (TWO_PI / 8) * i + millis() * 0.0002;
+    let r = 320 + 24 * sin(millis() * 0.0007 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    fill(255, 220, 120, 90);
+    noStroke();
+    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
+  }
+  for (let i = 0; i < 5; i++) {
+    let angle = (TWO_PI / 5) * i + millis() * 0.0003;
+    let r = 200 + 40 * cos(millis() * 0.001 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    fill(120, 200, 255, 70);
+    noStroke();
+    ellipse(x, y, 36, 36);
+  }
+  // --- Decorative stars ---
+  for (let i = 0; i < 4; i++) {
+    let angle = (TWO_PI / 4) * i + millis() * 0.0005;
+    let r = 260 + 30 * sin(millis() * 0.0012 + i);
+    let x = width / 2 + cos(angle) * r;
+    let y = height / 2 + sin(angle) * r;
+    push();
+    translate(x, y);
+    rotate(millis() * 0.0007 + i);
+    fill(255, 180, 220, 100);
+    noStroke();
+    for (let j = 0; j < 5; j++) {
+      let a = TWO_PI * j / 5;
+      let sx = cos(a) * 14;
+      let sy = sin(a) * 14;
+      let sx2 = cos(a + PI / 5) * 6;
+      let sy2 = sin(a + PI / 5) * 6;
+      triangle(0, 0, sx, sy, sx2, sy2);
+    }
+    pop();
+  }
+
+  // Draw animated elements around the camera
+  let cx = width / 2;
+  let cy = height / 2;
+  let radius = 220;
+  let t = millis() * 0.001;
+  for (let i = 0; i < elementImgs.length; i++) {
+    let angle = t + i * (TWO_PI / elementImgs.length);
+    let ex = cx + cos(angle) * radius;
+    let ey = cy + sin(angle) * radius;
+    let s = 90 + 18 * sin(t * 1.2 + i);
+    if (elementImgs[i]) {
+      push();
+      imageMode(CENTER);
+      translate(ex, ey);
+      rotate(0.1 * sin(t + i));
+      image(elementImgs[i], 0, 0, s, s);
+      pop();
+    }
+  }
+
+  // --- Scale up Camera.png ---
+  let camW = 480, camH = 368; // was 340, 260
+  if (cameraImg) {
+    imageMode(CENTER);
+    image(cameraImg, cx, cy, camW, camH);
+  }
+
+  if (webcamReady && webcam) {
+    push();
+    imageMode(CENTER);
+    let clipW = camW * 0.78, clipH = camH * 0.62;
+    translate(cx, cy - 8);
+    drawingContext.save();
+    drawingContext.beginPath();
+    if (drawingContext.roundRect) {
+      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
+    } else {
+      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
+    }
+    drawingContext.clip();
+    image(webcam, 0, 0, clipW, clipH);
+    drawingContext.restore();
+    pop();
+  } else {
+    fill(80, 80, 80);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text("Waiting for camera...", cx, cy);
+  }
+
+  fill(80, 80, 80);
+  textAlign(CENTER, TOP);
+  textSize(36);
+  textFont('monospace');
+  text('Say Cheese!', cx, cy + camH / 2 + 32);
+}
+
+// --- Camera loading scene ---
+function drawCameraLoading() {
+  cameraLoadingAlpha = min(cameraLoadingAlpha + 8, 255);
+  cameraLoadingProgress += 0.012;
+
+  fill(30, 30, 30, cameraLoadingAlpha);
   noStroke();
   rect(0, 0, width, height);
 
@@ -1563,213 +2233,281 @@ function drawFinalCameraScene() {
   rect(barX, barY, barW, barH, 8);
   noStroke();
   fill(80, 200, 255);
-  let progressW = constrain(barW * finalLoadingProgress, 0, barW);
+  let progressW = constrain(barW * cameraLoadingProgress, 0, barW);
   rect(barX, barY, progressW, barH, 8);
 
-  if (finalLoadingProgress >= 1) {
-    finalLoadingAlpha = max(finalLoadingAlpha - 12, 0);
-    if (finalLoadingAlpha <= 0) {
-      showFinalLoading = false;
-      showFinalScene = true;
-      finalLoadingProgress = 0;
-      finalLoadingAlpha = 0;
+  if (cameraLoadingProgress >= 1) {
+    cameraLoadingAlpha = max(cameraLoadingAlpha - 12, 0);
+    if (cameraLoadingAlpha <= 0) {
+      showCameraLoading = false;
+      showCameraScene = true;
+      cameraLoadingProgress = 0;
+      cameraLoadingAlpha = 0;
     }
   }
+}
 
-      
+// --- Add these utility functions for clouds and birds ---
+function drawCloud(x, y, w, h) {
+  push();
+  noStroke();
+  fill(255, 255, 255, 180);
+  ellipse(x, y, w, h);
+  ellipse(x - w * 0.3, y + h * 0.1, w * 0.6, h * 0.7);
+  ellipse(x + w * 0.3, y + h * 0.1, w * 0.5, h * 0.6);
+  pop();
+}
+
+function drawBird(x, y, size, wing) {
+  push();
+  stroke(60, 60, 60);
+  strokeWeight(2);
+  noFill();
+  // Draw two wings as arcs
+  arc(x, y, size, size * 0.7, PI + wing, TWO_PI + wing);
+  arc(x, y, size, size * 0.7, PI + wing + 0.8, TWO_PI + wing + 0.8);
+  pop();
+}
+
+// --- Minimal TetrisGame class for demo/fix ---
+class TetrisGame {
+  constructor(x, y, cell) {
+    this.offsetX = x;
+    this.offsetY = y;
+    this.cell = cell;
+    this.gridW = 10;
+    this.gridH = 20;
+    this.grid = [];
+    for (let i = 0; i < this.gridH; i++) {
+      this.grid[i] = Array(this.gridW).fill(0);
+    }
+    this.score = 0;
+    this.gameOver = false;
+    this.shapes = [
+      // I
+      [[1, 1, 1, 1]],
+      // O
+      [[1, 1], [1, 1]],
+      // T
+      [[0, 1, 0], [1, 1, 1]],
+      // S
+      [[0, 1, 1], [1, 1, 0]],
+      // Z
+      [[1, 1, 0], [0, 1, 1]],
+      // J
+      [[1, 0, 0], [1, 1, 1]],
+      // L
+      [[0, 0, 1], [1, 1, 1]]
+    ];
+    this.colors = [
+      color(80, 200, 255), // I
+      color(255, 220, 80), // O
+      color(180, 80, 255), // T
+      color(80, 255, 120), // S
+      color(255, 80, 80),  // Z
+      color(60, 120, 255), // J
+      color(255, 140, 40)  // L
+    ];
+    this.spawnBlock();
+    this.dropCounter = 0;
+    this.dropInterval = 30; // frames
+  }
+  spawnBlock() {
+    this.shapeIndex = floor(random(this.shapes.length));
+    this.shape = this.shapes[this.shapeIndex];
+    this.block = {
+      x: floor(this.gridW / 2) - floor(this.shape[0].length / 2),
+      y: 0,
+      shape: this.shape,
+      color: this.colors[this.shapeIndex]
+    };
+    if (this.collides(this.block.x, this.block.y, this.block.shape)) {
+      this.gameOver = true;
+    }
+  }
+  collides(x, y, shape) {
+    for (let i = 0; i < shape.length; i++) {
+      for (let j = 0; j < shape[i].length; j++) {
+        if (shape[i][j]) {
+          let gx = x + j;
+          let gy = y + i;
+          if (gx < 0 || gx >= this.gridW || gy >= this.gridH) return true;
+          if (gy >= 0 && this.grid[gy][gx]) return true;
+        }
+      }
+    }
+    return false;
+  }
+  merge() {
+    let { x, y, shape, color } = this.block;
+    for (let i = 0; i < shape.length; i++) {
+      for (let j = 0; j < shape[i].length; j++) {
+        if (shape[i][j]) {
+          let gx = x + j;
+          let gy = y + i;
+          if (gy >= 0 && gx >= 0 && gx < this.gridW && gy < this.gridH)
+            this.grid[gy][gx] = color;
+        }
+      }
+    }
+  }
+  clearLines() {
+    let lines = 0;
+    for (let i = this.gridH - 1; i >= 0; i--) {
+      if (this.grid[i].every(cell => cell)) {
+        this.grid.splice(i, 1);
+        this.grid.unshift(Array(this.gridW).fill(0));
+        lines++;
+        i++;
+      }
+    }
+    if (lines > 0) this.score += lines * 100;
+  }
   display() {
-    // Draw grid background
-    push();
-    fill(230, 240, 255, 60);
-    stroke(55, 65, 85, 80);
-    strokeWeight(2);
-    rect(this.offsetX - 4, this.offsetY - 4, this.gridW * this.cell + 8, this.gridH * this.cell + 8, 10);
-    pop();
-
-    // Draw placed blocks
-    for (let y = 0; y < this.gridH; y++) {
-      for (let x = 0; x < this.gridW; x++) {
-        if (this.grid[y][x]) {
-          fill(this.getColor(this.grid[y][x]));
-          stroke(55, 65, 85);
-          strokeWeight(2);
-          rect(this.offsetX + x * this.cell, this.offsetY + y * this.cell, this.cell, this.cell, 6);
+    // Draw grid
+    for (let i = 0; i < this.gridH; i++) {
+      for (let j = 0; j < this.gridW; j++) {
+        stroke(220);
+        strokeWeight(1);
+        fill(245);
+        rect(this.offsetX + j * this.cell, this.offsetY + i * this.cell, this.cell, this.cell);
+        if (this.grid[i][j]) {
+          fill(this.grid[i][j]);
+          rect(this.offsetX + j * this.cell, this.offsetY + i * this.cell, this.cell, this.cell);
         }
       }
     }
     // Draw current block
-    if (this.current) {
-      fill(this.getColor(this.current.type));
-      stroke(55, 65, 85);
-      strokeWeight(2);
-      let shape = this.current.shape;
-      for (let dy = 0; dy < shape.length; dy++) {
-        for (let dx = 0; dx < shape[dy].length; dx++) {
-          if (shape[dy][dx]) {
-            rect(
-              this.offsetX + (this.current.x + dx) * this.cell,
-              this.offsetY + (this.current.y + dy) * this.cell,
-              this.cell, this.cell, 6
-            );
+    if (!this.gameOver && this.block) {
+      let { x, y, shape, color } = this.block;
+      fill(color);
+      for (let i = 0; i < shape.length; i++) {
+        for (let j = 0; j < shape[i].length; j++) {
+          if (shape[i][j]) {
+            rect(this.offsetX + (x + j) * this.cell, this.offsetY + (y + i) * this.cell, this.cell, this.cell);
           }
         }
       }
     }
-    // Draw game over
-    if (this.gameOver) {
-      // Slower flicker, blend, fit exactly over grid, but scale up
-      if (smartphoneImg && frameCount % 36 < 18) {
-        let scale = 1.25; // scale up smartphone image
-        let imgW = this.gridW * this.cell * scale;
-        let imgH = this.gridH * this.cell * scale;
-        let imgX = this.offsetX + this.gridW * this.cell / 2;
-        let imgY = this.offsetY + this.gridH * this.cell / 2;
-        push();
-        imageMode(CENTER);
-        blendMode(MULTIPLY);
-        tint(255, 180);
-        image(smartphoneImg, imgX, imgY, imgW, imgH);
-        blendMode(BLEND);
-        pop();
-      }
-      // Clear, bold, large GAME OVER text with shadow
-      push();
-      textAlign(CENTER, CENTER);
-      textFont('monospace');
-      textSize(54);
-      fill(0, 180);
-      text('GAME OVER', width / 2 + 3, this.offsetY + this.gridH * this.cell / 2 + 3);
-      fill(255, 80, 80, 255);
-      stroke(255);
-      strokeWeight(5);
-      text('GAME OVER', width / 2, this.offsetY + this.gridH * this.cell / 2);
-      pop();
-
-      if (tetrisGameOverTime === null) {
-        tetrisGameOverTime = millis();
-      }
-      if (!showTetrisGameOverGuide && tetrisGameOverTime && millis() - tetrisGameOverTime > 5000) {
+    // Drop block automatically
+    if (!this.gameOver) {
+      this.dropCounter++;
+      if (this.dropCounter >= this.dropInterval) {
+        this.move(0, 1);
+        this.dropCounter = 0;
+           }
+    }
+  }
+  move(dx, dy) {
+    if (this.gameOver) return;
+    let { x, y, shape } = this.block;
+    let nx = x + dx;
+    let ny = y + dy;
+    if (!this.collides(nx, ny, shape)) {
+      this.block.x = nx;
+      this.block.y = ny;
+    } else if (dy === 1) {
+      // Landed
+      this.merge();
+      this.clearLines();
+      this.spawnBlock();
+      // --- Show Tetris Game Over Guide if game is over ---
+      if (this.gameOver && typeof showTetrisGameOverGuide !== "undefined") {
         showTetrisGameOverGuide = true;
         tetrisGameOverGuideAlpha = 0;
         tetrisGameOverGuideTextBoxAlpha = 0;
         tetrisGameOverGuideTextIndex = 0;
       }
     }
-    // Drop block
-    if (!this.gameOver && millis() - this.dropTimer > this.dropInterval) {
-      this.move(0, 1);
-      this.dropTimer = millis();
-    }
   }
-  move(dx, dy) {
-    if (!this.current) return;
-    let nx = this.current.x + dx;
-    let ny = this.current.y + dy;
-    if (this.valid(nx, ny, this.current.shape)) {
-      this.current.x = nx;
-      this.current.y = ny;
-    } else if (dy === 1) {
-      // Place block
-      let shape = this.current.shape;
-      for (let dy2 = 0; dy2 < shape.length; dy2++) {
-        for (let dx2 = 0; dx2 < shape[dy2].length; dx2++) {
-          if (shape[dy2][dx2]) {
-            let gx = this.current.x + dx2;
-            let gy = this.current.y + dy2;
-            if (gy >= 0 && gy < this.gridH && gx >= 0 && gx < this.gridW) {
-              this.grid[gy][gx] = this.current.type;
-            }
-          }
-        }
-      }
-      // Clear lines and update score
-      let linesCleared = 0;
-      for (let y = this.gridH - 1; y >= 0; y--) {
-        if (this.grid[y].every(v => v)) {
-          this.grid.splice(y, 1);
-          this.grid.unshift(Array(this.gridW).fill(0));
-          y++;
-          linesCleared++;
-        }
-      }
-      if (linesCleared > 0) {
-        this.score += [0, 100, 300, 500, 800][linesCleared] || (linesCleared * 200);
-      }
-      // Check for game over
-      if (this.current.y === 0) {
-        this.gameOver = true;
-      }
-      this.current = this.spawnBlock();
-    }
-  }
-  valid(nx, ny, shape) {
-    for (let dy = 0; dy < shape.length; dy++) {
-      for (let dx = 0; dx < shape[dy].length; dx++) {
-        if (shape[dy][dx]) {
-          let gx = nx + dx;
-          let gy = ny + dy;
-          if (gx < 0 || gx >= this.gridW || gy >= this.gridH) return false;
-          if (gy >= 0 && this.grid[gy][gx]) return false;
-        }
+  rotate() {
+    if (this.gameOver) return;
+    let { x, y, shape } = this.block;
+    let newShape = [];
+    for (let j = 0; j < shape[0].length; j++) {
+      newShape[j] = [];
+      for (let i = shape.length - 1; i >= 0; i--) {
+        newShape[j][shape.length - 1 - i] = shape[i][j];
       }
     }
-    return true;
-  }
-  rotate() {  
-    if (!this.current) return;
-    let rot = this.current.rot + 1;
-    let newShape = this.getShape(this.current.type, rot);
-    if (this.valid(this.current.x, this.current.y, newShape)) {
-      this.current.shape = newShape;
-      this.current.rot = rot;
+    if (!this.collides(x, y, newShape)) {
+      this.block.shape = newShape;
     }
   }
   changeShape() {
-    // Change to a random new shape (different from current)
-    let newType;
-    do {
-      newType = floor(random(1, 8));
-    } while (newType === this.current.type);
-    this.current.type = newType;
-    this.current.rot = 0;
-    this.current.shape = this.getShape(newType, 0);
+    if (this.gameOver) return;
+    let idx = (this.shapeIndex + 1) % this.shapes.length;
+    let newShape = this.shapes[idx];
+    if (!this.collides(this.block.x, this.block.y, newShape)) {
+      this.block.shape = newShape;
+      this.block.color = this.colors[idx];
+      this.shapeIndex = idx;
+    }
   }
+}
 
-
-// --- Tetris Game Over Guide ---
+// Add this function if not present (drawTetrisGameOverGuide):
 function drawTetrisGameOverGuide() {
-  // Draw a clean background instead of overlaying on the game
-  fill(240, 240, 230);
-  noStroke();
-  rect(0, 0, width, height);
-
   // Fade in
   tetrisGameOverGuideAlpha = min(tetrisGameOverGuideAlpha + 10, 255);
   tetrisGameOverGuideTextBoxAlpha = min(tetrisGameOverGuideTextBoxAlpha + 10, 230);
 
-  // Draw congratulation character (reuse celebrateCharImg)
+  // Draw blurred, darkened overlay
+  fill(0, 200);
+  noStroke();
+  rect(0, 0, width, height);
+
+  // --- Draw smartphone.png in the center ---
+  if (smartphoneImg) {
+    push();
+    imageMode(CENTER);
+    let imgW = 320, imgH = 520;
+    image(smartphoneImg, width / 2, height / 2 - 60, imgW, imgH);
+    pop();
+  }
+
+  // --- Draw "GAME OVER" text on top of smartphone, more clear ---
+  push();
+  textAlign(CENTER, CENTER);
+  textFont('monospace');
+  textSize(64);
+  stroke(0, 0, 0, tetrisGameOverGuideAlpha * 0.9);
+  strokeWeight(10);
+  fill(255, 80, 80, tetrisGameOverGuideAlpha);
+  text("GAME OVER", width / 2, height / 2 - 180);
+  noStroke();
+  fill(255, 255, 255, tetrisGameOverGuideAlpha);
+  textSize(64);
+  text("GAME OVER", width / 2, height / 2 - 180);
+  pop();
+
+  // --- Draw celebrateCharImg above the text box, both moved down a bit ---
+  const charY = height / 2 + 80; // moved down
+  const boxY = height / 2 + 170; // moved down, below char
+
   if (celebrateCharImg) {
     push();
     tint(255, tetrisGameOverGuideAlpha);
     imageMode(CENTER);
-    let imgW = 320, imgH = 320;
-    image(celebrateCharImg, width / 2, height / 2 - 180, imgW, imgH);
+    let imgW = 220, imgH = 220;
+    image(celebrateCharImg, width / 2, charY, imgW, imgH);
     pop();
   }
 
-  // Draw text box (centered, covers text)
+  // Draw text box (moved down)
   let lines = tetrisGameOverGuideTextList[tetrisGameOverGuideTextIndex].split('\n');
-  textSize(32);
+  textSize(30);
   textFont('monospace');
   let lineH = 44;
   let textW = 0;
   for (let line of lines) {
     textW = max(textW, textWidth(line));
   }
-  let boxW = textW + 100;
-  let boxH = lines.length * lineH + 60;
+  let boxW = textW + 120;
+  let boxH = lines.length * lineH + 64;
   let boxX = width / 2 - boxW / 2;
-  let boxY = height / 2 + 10;
+  // let boxY = height / 2 + 60; // old
+  // boxY is now set above
 
   push();
   fill(30, 30, 30, tetrisGameOverGuideTextBoxAlpha);
@@ -1779,20 +2517,17 @@ function drawTetrisGameOverGuide() {
   noStroke();
   fill(255, tetrisGameOverGuideAlpha);
   textAlign(CENTER, TOP);
-  textSize(32);
+  textSize(30);
   textFont('monospace');
   for (let i = 0; i < lines.length; i++) {
-    text(lines[i], width / 2, boxY + 28 + i * lineH);
+    text(lines[i], width / 2, boxY + 32 + i * lineH);
   }
   pop();
 
-  // Draw "Continue" button centered below the text box
+  // Draw "Next" button centered below the text box
   let btnW = 180, btnH = 54;
   let btnX = width / 2 - btnW / 2;
   let btnY = boxY + boxH + 28;
-
-  // Always store the button area for click detection
-  drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 
   // Hover detection for continue button
   if (
@@ -1816,50 +2551,9 @@ function drawTetrisGameOverGuide() {
   textAlign(CENTER, CENTER);
   textSize(26);
   textFont('monospace');
-  text("Continue", btnX + btnW / 2, btnY + btnH / 2);
+  text("Next", btnX + btnW / 2, btnY + btnH / 2);
   pop();
-}
 
-let pixelBursts = [];
-let lastMouseX = null, lastMouseY = null;
-
-function mouseMoved() {
-  // Only trigger in first scene
-  if (!showGuide && !showPark && !showTetris && !showTetrisLoading && !loading) {
-    textSize(36);
-    textFont('monospace');
-    let paddingX = 48;
-    let paddingY = 36;
-    let minW = 320;
-    let minH = 100;
-       let txtW = textWidth(boardText);
-    let boardW = max(minW, txtW + paddingX);
-    let boardH = max(minH, 36 + paddingY);
-    let boardX = (width - boardW) / 2;
-    let boardY = (height - boardH) / 2;
-    if (
-      mouseX > boardX && mouseX < boardX + boardW &&
-      mouseY > boardY && mouseY < boardY + boardH
-    ) {
-      // Only spawn if mouse moved significantly
-      if (lastMouseX === null || dist(mouseX, mouseY, lastMouseX, lastMouseY) > 6) {
-        for (let i = 0; i < 16; i++) {
-          let angle = random(TWO_PI);
-          let speed = random(2, 6);
-          pixelBursts.push({
-            x: mouseX,
-            y: mouseY,
-            vx: cos(angle) * speed,
-            vy: sin(angle) * speed,
-            size: floor(random(3, 8)),
-            col: color(random([255, 80, 200, 120, 255]), random([80, 200, 255, 220, 120]), random([80, 255, 120, 255, 200])),
-            life: 18 + floor(random(10)),
-            maxLife: 28
-          });
-        }
-      }
-      lastMouseX = mouseX;
-      lastMouseY = mouseY;
-    }
-  }
+  // Store button area for click
+  drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 }
