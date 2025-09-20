@@ -2199,55 +2199,7 @@ function drawCameraScene() {
   text('Say Cheese!', cx, cy + camH / 2 + 32);
 }
 
-// --- Camera loading scene ---
-function drawCameraLoading() {
-  cameraLoadingAlpha = min(cameraLoadingAlpha + 8, 255);
-  cameraLoadingProgress += 0.012;
-
-  fill(30, 30, 30, cameraLoadingAlpha);
-  noStroke();
-  rect(0, 0, width, height);
-
-  // Draw char2.png centered with loading text
-  if (char2Img) {
-    let imgW = 200;
-    let imgH = 200;
-    imageMode(CENTER);
-    image(char2Img, width / 2, height / 2.2 - 80, imgW, imgH);
-    imageMode(CORNER);
-  }
-
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(40);
-  textFont('monospace');
-  text('Loading...', width / 2, height / 2 + 10);
-
-  let barW = 340;
-  let barH = 28;
-  let barX = width / 2 - barW / 2;
-  let barY = height / 2 + 60;
-  stroke(255);
-  strokeWeight(5);
-  noFill();
-  rect(barX, barY, barW, barH, 8);
-  noStroke();
-  fill(80, 200, 255);
-  let progressW = constrain(barW * cameraLoadingProgress, 0, barW);
-  rect(barX, barY, progressW, barH, 8);
-
-  if (cameraLoadingProgress >= 1) {
-    cameraLoadingAlpha = max(cameraLoadingAlpha - 12, 0);
-    if (cameraLoadingAlpha <= 0) {
-      showCameraLoading = false;
-      showCameraScene = true;
-      cameraLoadingProgress = 0;
-      cameraLoadingAlpha = 0;
-    }
-  }
-}
-
-// --- Add these utility functions for clouds and birds ---
+// --- Update these utility functions for clouds and birds ---
 function drawCloud(x, y, w, h) {
   push();
   noStroke();
@@ -2263,9 +2215,15 @@ function drawBird(x, y, size, wing) {
   stroke(60, 60, 60);
   strokeWeight(2);
   noFill();
-  // Draw two wings as arcs
-  arc(x, y, size, size * 0.7, PI + wing, TWO_PI + wing);
-  arc(x, y, size, size * 0.7, PI + wing + 0.8, TWO_PI + wing + 0.8);
+  // Draw a simple "V" shape for the bird
+  let wingSpan = size;
+  let wingAngle = PI / 5 + 0.5 * sin(wing); // animate wings
+  let leftX = x - cos(wingAngle) * wingSpan / 2;
+  let leftY = y + sin(wingAngle) * wingSpan / 2;
+  let rightX = x + cos(wingAngle) * wingSpan / 2;
+  let rightY = y + sin(wingAngle) * wingSpan / 2;
+  line(leftX, leftY, x, y);
+  line(x, y, rightX, rightY);
   pop();
 }
 
@@ -2557,3 +2515,45 @@ function drawTetrisGameOverGuide() {
   // Store button area for click
   drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 }
+  fill(255, tetrisGameOverGuideAlpha);
+  textAlign(CENTER, TOP);
+  textSize(30);
+  textFont('monospace');
+  for (let i = 0; i < lines.length; i++) {
+    text(lines[i], width / 2, boxY + 32 + i * lineH);
+  }
+  pop();
+
+  // Draw "Next" button centered below the text box
+  let btnW = 180, btnH = 54;
+  let btnX = width / 2 - btnW / 2;
+  let btnY = boxY + boxH + 28;
+
+  // Hover detection for continue button
+  if (
+    mouseX > btnX && mouseX < btnX + btnW &&
+    mouseY > btnY && mouseY < btnY + btnH
+  ) {
+    tetrisGameOverGuideBtnHovered = true;
+    cursor(HAND);
+  } else {
+    tetrisGameOverGuideBtnHovered = false;
+    cursor(ARROW);
+  }
+
+  push();
+  fill(tetrisGameOverGuideBtnHovered ? color(80, 200, 255, tetrisGameOverGuideAlpha) : color(50, 50, 50, tetrisGameOverGuideAlpha));
+  stroke(255, tetrisGameOverGuideAlpha);
+  strokeWeight(3);
+  rect(btnX, btnY, btnW, btnH, 12);
+  noStroke();
+  fill(255, tetrisGameOverGuideAlpha);
+  textAlign(CENTER, CENTER);
+  textSize(26);
+  textFont('monospace');
+  text("Next", btnX + btnW / 2, btnY + btnH / 2);
+  pop();
+
+  // Store button area for click
+  drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
+
