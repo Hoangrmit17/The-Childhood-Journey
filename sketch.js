@@ -29,8 +29,8 @@ let iconImgs = [];
 let icons = [];
 let draggingIcon = null;
 let dragOffset = {x: 0, y: 0};
-let bgImg; // Add this line
-let char2Img; // Add for loading scene
+let bgImg; // Load background image
+let char2Img; // Load char2 for loading scene
 let guideCharImg; // Add for guide character
 let celebrateCharImg; // Add for celebration character
 let showGuide = false;
@@ -79,7 +79,7 @@ let tetrisGameOverGuideBtnHovered = false;
 let tetrisGameOverGuideTextList = [
   "Congratulations!\nYou finished the Tetris game!",
   "Did you see those messy blocks like your phone's app icons?",
-  "It's too much, haha. Now let's continue your adventure!"
+  "It's too much, haha. Now let's celebrate your adventure!"
 ];
 let tetrisGameOverGuideTextIndex = 0;
 
@@ -91,29 +91,23 @@ let finalLoadingAlpha = 0;
 let finalLoadingProgress = 0;
 let showFinalScene = false;
 
-// --- Add new flag for camera scene ---
-let showCameraScene = false;
 
-// Add new flag for camera loading scene
-let showCameraLoading = false;
-let cameraLoadingAlpha = 0;
-let cameraLoadingProgress = 0;
+// --- Mission Completed scene flags ---
+let showMissionComplete = false;
+let missionBtnHovered = null; // 'yes' or 'no'
+let missionPulse = 0;
+let missionParticles = [];
+// Add for animated dots in mission complete scene
+let missionDots = [];
+// Add for mission fireworks
+let showMissionFireworks = false;
+let missionFireworks = [];
+let missionFireworksStartTime = 0;
 
 // --- Camera intro scene flag and text ---
-let showCameraIntro = false;
-let cameraIntroAlpha = 0;
-let cameraIntroTextList = [
-  "Ready for the next memory?",
-  "Let's take a selfie to capture this moment!",
-  "Now smile and say cheese!"
-];
-let cameraIntroTextIndex = 0;
-let cameraIntroBtnHovered = false;
 
-let cameraImg; // camera.png
-let elementImgs = []; // Element1.png to Element5.png
-let webcam;
-let webcamReady = false;
+ // camera.png
+ // Element1.png to Element5.png
 
 function preload() {
   characterImg = loadImage('character.png');
@@ -125,11 +119,7 @@ function preload() {
   guideCharImg = loadImage('guide char.png'); // Use guide char.png as guide character
   celebrateCharImg = loadImage('celebrate char.png'); // Load celebration character
   smartphoneImg = loadImage('smartphone.png'); // Load your provided smartphone image
-  cameraImg = loadImage('camera.png');
-  for (let i = 1; i <= 5; i++) {
-    elementImgs.push(loadImage(`Element${i}.png`));
-  }
-  
+  endingBgImg = loadImage('ending.png'); // <-- Add this line
   // Optionally, load arrow overlays if you want custom arrow images
   // tetrisArrowImgs[0] = loadImage('arrow_up.png');
   // tetrisArrowImgs[1] = loadImage('arrow_down.png');
@@ -187,11 +177,6 @@ function setup() {
     });
   }
   // Setup webcam but hide it (draw manually)
-  webcam = createCapture(VIDEO, () => {
-    webcamReady = true;
-  });
-  webcam.size(320, 240);
-  webcam.hide();
 }
 
 let nextBtn = {
@@ -208,36 +193,15 @@ let loadingProgress = 0;
 let loadingDone = false;
 
 function draw() {
+  // Final loading and final scene (camera removed)
+  if (showFinalLoading) { drawFinalLoading(); return; }
+  if (showFinalScene) { drawFinalScene(); return; }
+
+  if (showMissionComplete) { drawMissionComplete(); return; }
+
   // --- Show camera intro scene before camera scene ---
-  if (showCameraIntro) {
-    drawCameraIntroScene();
-    return;
-  }
-
   // --- Show camera loading scene after Tetris, before camera scene ---
-  if (showCameraLoading) {
-    drawCameraLoading();
-    return;
-  }
-
   // --- Show camera scene after Tetris ---
-  if (showCameraScene) {
-    drawCameraScene();
-    return;
-  }
-
-  // --- Only show loading/final scene if not in camera scene ---
-  if (!showCameraScene) {
-    if (showFinalLoading) {
-      drawFinalLoading();
-      return;
-    }
-    if (showFinalScene) {
-      drawFinalCameraScene();
-      return;
-    }
-  }
-
   if (loading) {
     drawLoadingTransition();
     return;
@@ -1070,11 +1034,164 @@ function drawFinalLoading() {
 // --- Final scene placeholder ---
 function drawFinalScene() {
   background(30, 30, 30);
+
+  // Draw celebrateCharImg centered above the text
+ 
+
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(48);
   textFont('monospace');
   text('The End\n(or your next adventure!)', width / 2, height / 2);
+}
+
+
+
+// --- Mission Completed scene ---
+function drawMissionComplete() {
+  // Use ending.png as background if loaded
+  if (endingBgImg) {
+    image(endingBgImg, 0, 0, width, height);
+  } else {
+    background(30);
+  }
+  
+
+  // --- Animated random color dots ---
+  // Initialize if needed
+  if (missionDots.length < 80) {
+    for (let i = missionDots.length; i < 80; i++) {
+      missionDots.push({
+        x: random(width),
+        y: random(height),
+        vx: random(-1.2, 1.2),
+        vy: random(-1.2, 1.2),
+        size: random(8, 18),
+        col: color(random(255), random(255), random(255), random(120, 255))
+      });
+    }
+  }
+  // Animate and draw
+  for (let dot of missionDots) {
+    dot.x += dot.vx;
+    dot.y += dot.vy;
+    // Bounce off edges
+    if (dot.x < 0 || dot.x > width) dot.vx *= -1;
+    if (dot.y < 0 || dot.y > height) dot.vy *= -1;
+    fill(dot.col);
+    noStroke();
+    ellipse(dot.x, dot.y, dot.size, dot.size);
+  }
+
+  // --- Fireworks effect if showMissionFireworks is true ---
+  if (showMissionFireworks) {
+    // Launch new fireworks randomly
+    if (random() < 0.08 && missionFireworks.length < 10) {
+      missionFireworks.push(createFirework());
+    }
+    // Update and draw fireworks
+    for (let i = missionFireworks.length - 1; i >= 0; i--) {
+      let fw = missionFireworks[i];
+      fw.update();
+      fw.show();
+      if (fw.done()) {
+        missionFireworks.splice(i, 1);
+      }
+    }
+    // Stop fireworks after 4 seconds
+    if (millis() - missionFireworksStartTime > 4000) {
+      showMissionFireworks = false;
+      missionFireworks = [];
+    }
+  }
+
+  // Hearts row (pixel style) with pulse
+  let heartCount = 5;
+  let filled = 3;
+  let size = min(width, height) * 0.05; // responsive
+  let totalW = heartCount * size + (heartCount - 1) * (size * 0.2);
+  let startX = width/2 - totalW/2;
+  let y = height/2 - size*3;
+  missionPulse += 0.08;
+  for (let i = 0; i < heartCount; i++) {
+    let s = size * (1 + (i < filled ? 0.05 * sin(missionPulse + i) : 0));
+    let x = startX + i * (size + size*0.2);
+    fill(i < filled ? color(255,80,80) : color(120));
+    rect(x, y, s, s, 6);
+  }
+
+  // Title
+  textAlign(CENTER, CENTER);
+  textFont('monospace');
+  let flick = 220 + 35 * sin(frameCount * 0.06);
+  fill(255, flick);
+  textSize(min(width, height) * 0.07);
+  text('MISSION COMPLETED', width/2, height/2 - size*1.2);
+
+  // Subtitle
+  fill(200);
+  textSize(min(width, height) * 0.03);
+  text('DO YOU WANT TO GO BACK', width/2, height/2 - size*0.1);
+
+  // YES / NO buttons
+  let bw = max(120, min(width, height) * 0.14);
+  let bh = max(44, min(width, height) * 0.06);
+  let yesX = width/2 - bw - 20;
+  let noX  = width/2 + 20;
+  let by   = height/2 + size*0.8;
+
+  // Hover detection
+  missionBtnHovered = null;
+  if (mouseX>yesX && mouseX<yesX+bw && mouseY>by && mouseY<by+bh) missionBtnHovered = 'yes';
+  if (mouseX>noX && mouseX<noX+bw && mouseY>by && mouseY<by+bh) missionBtnHovered = 'no';
+
+  // YES button
+  fill(missionBtnHovered==='yes' ? color(80,200,255) : color(50));
+  stroke(255);
+  strokeWeight(4);
+  rect(yesX, by, bw, bh, 10);
+  noStroke();
+  fill(255);
+  textSize(bh*0.45);
+  text('YES', yesX + bw/2, by + bh/2);
+
+  // NO button
+  fill(missionBtnHovered==='no' ? color(255,80,80) : color(50));
+  stroke(255);
+  strokeWeight(4);
+  rect(noX, by, bw, bh, 10);
+  noStroke();
+  fill(255);
+  textSize(bh*0.45);
+  text('NO', noX + bw/2, by + bh/2);
+
+  // Fun interactions: trailing pixel particles when moving mouse over buttons
+  if (missionBtnHovered) {
+    missionParticles.push({
+      x: mouseX + random(-6,6),
+      y: mouseY + random(-6,6),
+      vx: random(-1.5, 1.5),
+      vy: random(-1.5, 1.5),
+      life: 40,
+      col: missionBtnHovered==='yes' ? color(80,200,255) : color(255,80,80)
+    });
+  }
+  for (let i = missionParticles.length - 1; i >= 0; i--) {
+    let p = missionParticles[i];
+    p.x += p.vx; p.y += p.vy; p.life -= 2;
+    fill(red(p.col), green(p.col), blue(p.col), p.life*6);
+    rect(p.x, p.y, 6, 6);
+    if (p.life <= 0) missionParticles.splice(i, 1);
+  }
+
+  // Draw celebrateCharImg above the text
+  if (celebrateCharImg) {
+    push();
+    imageMode(CENTER);
+    let imgW = 320, imgH = 320;
+    image(celebrateCharImg, width / 2, height / 2 - 280, imgW, imgH);
+    pop();
+  }
 }
 
 function drawTetrisScene() {
@@ -1093,8 +1210,8 @@ function drawTetrisScene() {
     textAlign(CENTER, CENTER);
     textFont('monospace');
     textSize(56);
-    text("GAME OVER", width / 2, height / 2 - 120);
-  }
+    text("MISSION COMPLETED", width / 2, height / 2 - 120);
+}
 
   background(240, 240, 230);
   drawTetrisFrame();
@@ -1357,6 +1474,40 @@ function keyPressed() {
 
 // --- Mouse pressed logic ---
 function mousePressed() {
+  
+  // Handle Mission Completed clicks
+  if (showMissionComplete) {
+    if (missionBtnHovered === 'yes') {
+      // Go back to Intro scene
+      showMissionComplete = false;
+      showPark = false;
+      showTetris = false;
+      showGuide = false;
+      showTetrisLoading = false;
+      showCelebrateGuide = false;
+      showTetrisGuide = false;
+      showTetrisGameOverGuide = false;
+      showFinalLoading = false;
+      showFinalScene = false;
+      // Reset intro text
+      boardTextIndex = 0;
+      boardText = boardTexts[boardTextIndex];
+      // Reset mission dots for next time
+      missionDots = [];
+      // Optionally reset fireworks
+      showMissionFireworks = false;
+      missionFireworks = [];
+      return;
+    } else if (missionBtnHovered === 'no') {
+      // Show fireworks effect
+      showMissionFireworks = true;
+      missionFireworksStartTime = millis();
+      missionFireworks = [];
+      // Keep showing mission complete scene, fireworks will auto-stop
+      return;
+    }
+  }
+
   // --- Handle Tetris Game Over Guide button click FIRST ---
   if (showTetrisGameOverGuide) {
     let btn = drawTetrisGameOverGuide.btn;
@@ -1373,37 +1524,11 @@ function mousePressed() {
         pixelBursts = [];
         lastMouseX = null;
         lastMouseY = null;
-        // --- Show camera intro scene after Tetris game over guide ---
-        showCameraIntro = true;
-        cameraIntroAlpha = 0;
-        cameraIntroTextIndex = 0;
-        showCameraLoading = false;
-        showCameraScene = false;
-        loading = false;
-        showFinalLoading = false;
-        showFinalScene = false;
-      }
-      return;
-    }
-    return;
-  }
-
-  // --- Camera intro scene continue button logic ---
-  if (showCameraIntro) {
-    let btn = drawCameraIntroScene.btn;
-    if (
-      btn &&
-      mouseX > btn.x && mouseX < btn.x + btn.w &&
-      mouseY > btn.y && mouseY < btn.y + btn.h
-    ) {
-      if (cameraIntroTextIndex < cameraIntroTextList.length - 1) {
-        cameraIntroTextIndex++;
-      } else {
-        showCameraIntro = false;
-        showCameraLoading = true;
-        cameraLoadingAlpha = 0;
-        cameraLoadingProgress = 0;
-      }
+        // --- After Tetris game over guide, go to Mission Completed scene ---
+        showMissionComplete = true;
+        showTetris = false;
+        showTetrisGuide = false;
+}
       return;
     }
     return;
@@ -1499,7 +1624,8 @@ function mousePressed() {
 
   // --- Opening scene "Next" button logic ---
   if (
-    !showCameraScene && !showGuide && !showPark && !loading && !showTetrisLoading &&
+    // Remove !showCameraScene from this condition
+    !showGuide && !showPark && !loading && !showTetrisLoading &&
     !showTetris && !showCelebrateGuide && !showTetrisGuide && !showTetrisGameOverGuide &&
     !showFinalLoading && !showFinalScene
   ) {
@@ -1524,6 +1650,7 @@ function mousePressed() {
   }
 }
 
+// --- Mouse dragged logic ---
 function mouseDragged() {
   if (showPark && draggingIcon) {
     draggingIcon.x = mouseX + dragOffset.x;
@@ -1531,6 +1658,7 @@ function mouseDragged() {
   }
 }
 
+// --- Mouse released logic ---
 function mouseReleased() {
   if (showPark && draggingIcon) {
     // Check if dropped on a seat
@@ -1564,264 +1692,43 @@ function mouseReleased() {
     draggingIcon.dragging = false;
     draggingIcon = null;
   }
-}
-
-// --- Final camera scene ---
-function drawFinalCameraScene() {
-  background(30, 30, 30);
-
-  // Draw animated elements around the camera
-  let cx = width / 2;
-  let cy = height / 2;
-  let radius = 220;
-  let t = millis() * 0.001;
-  for (let i = 0; i < elementImgs.length; i++) {
-    let angle = t + i * (TWO_PI / elementImgs.length);
-    let ex = cx + cos(angle) * radius;
-    let ey = cy + sin(angle) * radius;
-    let s = 90 + 18 * sin(t * 1.2 + i);
-    if (elementImgs[i]) {
-      push();
-      imageMode(CENTER);
-      translate(ex, ey);
-      rotate(0.1 * sin(t + i));
-      image(elementImgs[i], 0, 0, s, s);
-      pop();
-    }
-  }
-
-  // Draw camera frame in center
-  let camW = 340, camH = 260;
-  if (cameraImg) {
-    imageMode(CENTER);
-    image(cameraImg, cx, cy, camW, camH);
-  }
-
-  // Draw webcam feed inside camera frame (with rounded corners)
-  if (webcamReady && webcam) {
-    push();
-    imageMode(CENTER);
-    // Clip to rounded rectangle (matches the camera "screen" area)
-    let clipW = camW * 0.78, clipH = camH * 0.62;
-    translate(cx, cy - 8);
-    drawingContext.save();
-    drawingContext.beginPath();
-    if (drawingContext.roundRect) {
-      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
-    } else {
-      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
-    }
-    drawingContext.clip();
-    image(webcam, 0, 0, clipW, clipH);
-    drawingContext.restore();
-    pop();
-  } else {
-    // Show loading text if webcam not ready
-    fill(255);
-    textAlign(CENTER, CENTER);
-    textSize(28);
-    text("Waiting for camera...", cx, cy);
-  }
-
-  // Optional: Add a title
-  fill(255);
-  textAlign(CENTER, TOP);
-  textSize(36);
-  textFont('monospace');
-  text('Say Cheese!', cx, cy + camH / 2 + 32);
-}
-
-// --- Camera scene after Tetris ---
-function drawCameraScene() {
-  // Cream background
-  background(255, 251, 235);
-
-  // --- Decorative pastel circles ---
-  for (let i = 0; i < 8; i++) {
-    let angle = (TWO_PI / 8) * i + millis() * 0.0002;
-    let r = 320 + 24 * sin(millis() * 0.0007 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    fill(255, 220, 120, 90);
-    noStroke();
-    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
-  }
-  for (let i = 0; i < 5; i++) {
-    let angle = (TWO_PI / 5) * i + millis() * 0.0003;
-    let r = 200 + 40 * cos(millis() * 0.001 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    fill(120, 200, 255, 70);
-    noStroke();
-    ellipse(x, y, 36, 36);
-  }
-  // --- Decorative stars ---
-  for (let i = 0; i < 4; i++) {
-    let angle = (TWO_PI / 4) * i + millis() * 0.0005;
-    let r = 260 + 30 * sin(millis() * 0.0012 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    push();
-    translate(x, y);
-    rotate(millis() * 0.0007 + i);
-    fill(255, 180, 220, 100);
-    noStroke();
-    for (let j = 0; j < 5; j++) {
-      let a = TWO_PI * j / 5;
-      let sx = cos(a) * 14;
-      let sy = sin(a) * 14;
-      let sx2 = cos(a + PI / 5) * 6;
-      let sy2 = sin(a + PI / 5) * 6;
-      triangle(0, 0, sx, sy, sx2, sy2);
-    }
-    pop();
-  }
-
-  // Draw animated elements around the camera
-  let cx = width / 2;
-  let cy = height / 2;
-  let radius = 220;
-  let t = millis() * 0.001;
-  for (let i = 0; i < elementImgs.length; i++) {
-    let angle = t + i * (TWO_PI / elementImgs.length);
-    let ex = cx + cos(angle) * radius;
-    let ey = cy + sin(angle) * radius;
-    let s = 90 + 18 * sin(t * 1.2 + i);
-    if (elementImgs[i]) {
-      push();
-      imageMode(CENTER);
-      translate(ex, ey);
-      rotate(0.1 * sin(t + i));
-      image(elementImgs[i], 0, 0, s, s);
-      pop();
-    }
-  }
-
-  // --- Scale up Camera.png ---
-  let camW = 480, camH = 368; // was 340, 260
-  if (cameraImg) {
-    imageMode(CENTER);
-    image(cameraImg, cx, cy, camW, camH);
-  }
-
-  if (webcamReady && webcam) {
-    push();
-    imageMode(CENTER);
-    let clipW = camW * 0.78, clipH = camH * 0.62;
-    translate(cx, cy - 8);
-    drawingContext.save();
-    drawingContext.beginPath();
-    if (drawingContext.roundRect) {
-      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
-    } else {
-      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
-    }
-    drawingContext.clip();
-    image(webcam, 0, 0, clipW, clipH);
-    drawingContext.restore();
-    pop();
-  } else {
-    fill(80, 80, 80);
-    textAlign(CENTER, CENTER);
-    textSize(28);
-    text("Waiting for camera...", cx, cy);
-  }
-
-  fill(80, 80, 80);
-  textAlign(CENTER, TOP);
-  textSize(36);
-  textFont('monospace');
-  text('Say Cheese!', cx, cy + camH / 2 + 32);
-}
-
-// --- Camera intro scene ---
-function drawCameraIntroScene() {
-  cameraIntroAlpha = min(cameraIntroAlpha + 10, 255);
-
-  // Cream background
-  background(255, 251, 235);
-
-  // Decorative elements (reuse from camera scene)
-  for (let i = 0; i < 6; i++) {
-    let angle = (TWO_PI / 6) * i + millis() * 0.0002;
-    let r = 320 + 24 * sin(millis() * 0.0007 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    fill(255, 220, 120, 70);
-    noStroke();
-    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
-  }
-
-  // --- Draw guide character (centered, above text box) ---
-  if (guideCharImg) {
-    push();
-    tint(255, cameraIntroAlpha);
-    imageMode(CENTER);
-    let imgW = 320, imgH = 320;
-    image(guideCharImg, width / 2, height / 2 - 140, imgW, imgH);
-    pop();
-  }
-
-  // Draw text box with intro text
-  let lines = cameraIntroTextList[cameraIntroTextIndex].split('\n');
-  textSize(36);
-  textFont('monospace');
-  let lineH = 48;
-  let textW = 0;
-  for (let line of lines) textW = max(textW, textWidth(line));
-  let boxW = textW + 80;
-  let boxH = lines.length * lineH + 48;
-  let boxX = width / 2 - boxW / 2;
-  let boxY = height / 2 + 30;
-
-  push();
-  fill(30, 30, 30, 220);
-  stroke(255, cameraIntroAlpha);
-  strokeWeight(5);
-  rect(boxX, boxY, boxW, boxH, 16);
-  noStroke();
-  fill(255, cameraIntroAlpha);
-  textAlign(CENTER, TOP);
-  textSize(36);
-  textFont('monospace');
-  for (let i = 0; i < lines.length; i++) {
-    text(lines[i], width / 2, boxY + 24 + i * lineH);
-  }
-  pop();
-
-  // Draw "Continue" button
-  let btnW = 180, btnH = 54;
-  let btnX = width / 2 - btnW / 2;
-  let btnY = boxY + boxH + 28;
-  if (
-    mouseX > btnX && mouseX < btnX + btnW &&
-    mouseY > btnY && mouseY < btnY + btnH
-  ) {
-    cameraIntroBtnHovered = true;
-    cursor(HAND);
-  } else {
-    cameraIntroBtnHovered = false;
-    cursor(ARROW);
-  }
-  push();
-  fill(cameraIntroBtnHovered ? color(80, 200, 255, cameraIntroAlpha) : color(50, 50, 50, cameraIntroAlpha));
-  stroke(255, cameraIntroAlpha);
-  strokeWeight(3);
-  rect(btnX, btnY, btnW, btnH, 12);
-  noStroke();
-  fill(255, cameraIntroAlpha);
-  textAlign(CENTER, CENTER);
-  textSize(26);
-  textFont('monospace');
-  text("Continue", btnX + btnW / 2, btnY + btnH / 2);
-  pop();
-
-  // Store button area for click
-  drawCameraIntroScene.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 }
 
 // --- Update mousePressed to handle camera intro scene ---
 function mousePressed() {
+  // Handle Mission Completed clicks
+  if (showMissionComplete) {
+    if (missionBtnHovered === 'yes') {
+      // Go back to Intro scene
+      showMissionComplete = false;
+      showPark = false;
+      showTetris = false;
+      showGuide = false;
+      showTetrisLoading = false;
+      showCelebrateGuide = false;
+      showTetrisGuide = false;
+      showTetrisGameOverGuide = false;
+      showFinalLoading = false;
+      showFinalScene = false;
+      // Reset intro text
+      boardTextIndex = 0;
+      boardText = boardTexts[boardTextIndex];
+      // Reset mission dots for next time
+      missionDots = [];
+      // Optionally reset fireworks
+      showMissionFireworks = false;
+      missionFireworks = [];
+      return;
+    } else if (missionBtnHovered === 'no') {
+      // Show fireworks effect
+      showMissionFireworks = true;
+      missionFireworksStartTime = millis();
+      missionFireworks = [];
+      // Keep showing mission complete scene, fireworks will auto-stop
+      return;
+    }
+  }
+
   // --- Handle Tetris Game Over Guide button click FIRST ---
   if (showTetrisGameOverGuide) {
     let btn = drawTetrisGameOverGuide.btn;
@@ -1838,37 +1745,11 @@ function mousePressed() {
         pixelBursts = [];
         lastMouseX = null;
         lastMouseY = null;
-        // --- Show camera intro scene after Tetris game over guide ---
-        showCameraIntro = true;
-        cameraIntroAlpha = 0;
-        cameraIntroTextIndex = 0;
-        showCameraLoading = false;
-        showCameraScene = false;
-        loading = false;
-        showFinalLoading = false;
-        showFinalScene = false;
-      }
-      return;
-    }
-    return;
-  }
-
-  // --- Camera intro scene continue button logic ---
-  if (showCameraIntro) {
-    let btn = drawCameraIntroScene.btn;
-    if (
-      btn &&
-      mouseX > btn.x && mouseX < btn.x + btn.w &&
-      mouseY > btn.y && mouseY < btn.y + btn.h
-    ) {
-      if (cameraIntroTextIndex < cameraIntroTextList.length - 1) {
-        cameraIntroTextIndex++;
-      } else {
-        showCameraIntro = false;
-        showCameraLoading = true;
-        cameraLoadingAlpha = 0;
-        cameraLoadingProgress = 0;
-      }
+        // --- After Tetris game over guide, go to Mission Completed scene ---
+        showMissionComplete = true;
+        showTetris = false;
+        showTetrisGuide = false;
+}
       return;
     }
     return;
@@ -1964,7 +1845,9 @@ function mousePressed() {
 
   // --- Opening scene "Next" button logic ---
   if (
-    !showCameraScene && !showGuide && !showPark && !loading && !showTetrisLoading &&
+    // Remove !showCameraScene from this condition
+    !showGuide && !showPark && !loading && !showTetrisLoading &&
+   
     !showTetris && !showCelebrateGuide && !showTetrisGuide && !showTetrisGameOverGuide &&
     !showFinalLoading && !showFinalScene
   ) {
@@ -1989,6 +1872,7 @@ function mousePressed() {
   }
 }
 
+// --- Mouse dragged logic ---
 function mouseDragged() {
   if (showPark && draggingIcon) {
     draggingIcon.x = mouseX + dragOffset.x;
@@ -1996,6 +1880,7 @@ function mouseDragged() {
   }
 }
 
+// --- Mouse released logic ---
 function mouseReleased() {
   if (showPark && draggingIcon) {
     // Check if dropped on a seat
@@ -2029,174 +1914,6 @@ function mouseReleased() {
     draggingIcon.dragging = false;
     draggingIcon = null;
   }
-}
-
-// --- Final camera scene ---
-function drawFinalCameraScene() {
-  background(30, 30, 30);
-
-  // Draw animated elements around the camera
-  let cx = width / 2;
-  let cy = height / 2;
-  let radius = 220;
-  let t = millis() * 0.001;
-  for (let i = 0; i < elementImgs.length; i++) {
-    let angle = t + i * (TWO_PI / elementImgs.length);
-    let ex = cx + cos(angle) * radius;
-    let ey = cy + sin(angle) * radius;
-    let s = 90 + 18 * sin(t * 1.2 + i);
-    if (elementImgs[i]) {
-      push();
-      imageMode(CENTER);
-      translate(ex, ey);
-      rotate(0.1 * sin(t + i));
-      image(elementImgs[i], 0, 0, s, s);
-      pop();
-    }
-  }
-
-  // Draw camera frame in center
-  let camW = 340, camH = 260;
-  if (cameraImg) {
-    imageMode(CENTER);
-    image(cameraImg, cx, cy, camW, camH);
-  }
-
-  // Draw webcam feed inside camera frame (with rounded corners)
-  if (webcamReady && webcam) {
-    push();
-    imageMode(CENTER);
-    // Clip to rounded rectangle (matches the camera "screen" area)
-    let clipW = camW * 0.78, clipH = camH * 0.62;
-    translate(cx, cy - 8);
-    drawingContext.save();
-    drawingContext.beginPath();
-    if (drawingContext.roundRect) {
-      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
-    } else {
-      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
-    }
-    drawingContext.clip();
-    image(webcam, 0, 0, clipW, clipH);
-    drawingContext.restore();
-    pop();
-  } else {
-    // Show loading text if webcam not ready
-    fill(255);
-    textAlign(CENTER, CENTER);
-    textSize(28);
-    text("Waiting for camera...", cx, cy);
-  }
-
-  // Optional: Add a title
-  fill(255);
-  textAlign(CENTER, TOP);
-  textSize(36);
-  textFont('monospace');
-  text('Say Cheese!', cx, cy + camH / 2 + 32);
-}
-
-// --- Camera scene after Tetris ---
-function drawCameraScene() {
-  // Cream background
-  background(255, 251, 235);
-
-  // --- Decorative pastel circles ---
-  for (let i = 0; i < 8; i++) {
-    let angle = (TWO_PI / 8) * i + millis() * 0.0002;
-    let r = 320 + 24 * sin(millis() * 0.0007 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    fill(255, 220, 120, 90);
-    noStroke();
-    ellipse(x, y, 60 + 10 * sin(millis() * 0.001 + i), 60 + 10 * cos(millis() * 0.001 + i));
-  }
-  for (let i = 0; i < 5; i++) {
-    let angle = (TWO_PI / 5) * i + millis() * 0.0003;
-    let r = 200 + 40 * cos(millis() * 0.001 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    fill(120, 200, 255, 70);
-    noStroke();
-    ellipse(x, y, 36, 36);
-  }
-  // --- Decorative stars ---
-  for (let i = 0; i < 4; i++) {
-    let angle = (TWO_PI / 4) * i + millis() * 0.0005;
-    let r = 260 + 30 * sin(millis() * 0.0012 + i);
-    let x = width / 2 + cos(angle) * r;
-    let y = height / 2 + sin(angle) * r;
-    push();
-    translate(x, y);
-    rotate(millis() * 0.0007 + i);
-    fill(255, 180, 220, 100);
-    noStroke();
-    for (let j = 0; j < 5; j++) {
-      let a = TWO_PI * j / 5;
-      let sx = cos(a) * 14;
-      let sy = sin(a) * 14;
-      let sx2 = cos(a + PI / 5) * 6;
-      let sy2 = sin(a + PI / 5) * 6;
-      triangle(0, 0, sx, sy, sx2, sy2);
-    }
-    pop();
-  }
-
-  // Draw animated elements around the camera
-  let cx = width / 2;
-  let cy = height / 2;
-  let radius = 220;
-  let t = millis() * 0.001;
-  for (let i = 0; i < elementImgs.length; i++) {
-    let angle = t + i * (TWO_PI / elementImgs.length);
-    let ex = cx + cos(angle) * radius;
-    let ey = cy + sin(angle) * radius;
-    let s = 90 + 18 * sin(t * 1.2 + i);
-    if (elementImgs[i]) {
-      push();
-      imageMode(CENTER);
-      translate(ex, ey);
-      rotate(0.1 * sin(t + i));
-      image(elementImgs[i], 0, 0, s, s);
-      pop();
-    }
-  }
-
-  // --- Scale up Camera.png ---
-  let camW = 480, camH = 368; // was 340, 260
-  if (cameraImg) {
-    imageMode(CENTER);
-    image(cameraImg, cx, cy, camW, camH);
-  }
-
-  if (webcamReady && webcam) {
-    push();
-    imageMode(CENTER);
-    let clipW = camW * 0.78, clipH = camH * 0.62;
-    translate(cx, cy - 8);
-    drawingContext.save();
-    drawingContext.beginPath();
-    if (drawingContext.roundRect) {
-      drawingContext.roundRect(-clipW/2, -clipH/2, clipW, clipH, 32);
-    } else {
-      drawingContext.rect(-clipW/2, -clipH/2, clipW, clipH);
-    }
-    drawingContext.clip();
-    image(webcam, 0, 0, clipW, clipH);
-    drawingContext.restore();
-    pop();
-  } else {
-    fill(80, 80, 80);
-    textAlign(CENTER, CENTER);
-    textSize(28);
-    text("Waiting for camera...", cx, cy);
-  }
-
-  fill(80, 80, 80);
-  textAlign(CENTER, TOP);
-  textSize(36);
-  textFont('monospace');
-  text('Say Cheese!', cx, cy + camH / 2 + 32);
 }
 
 // --- Update these utility functions for clouds and birds ---
@@ -2343,7 +2060,7 @@ class TetrisGame {
         for (let j = 0; j < shape[i].length; j++) {
           if (shape[i][j]) {
             rect(this.offsetX + (x + j) * this.cell, this.offsetY + (y + i) * this.cell, this.cell, this.cell);
-          }
+                   }
         }
       }
     }
@@ -2432,12 +2149,12 @@ function drawTetrisGameOverGuide() {
   stroke(0, 0, 0, tetrisGameOverGuideAlpha * 0.9);
   strokeWeight(10);
   fill(255, 80, 80, tetrisGameOverGuideAlpha);
-  text("GAME OVER", width / 2, height / 2 - 180);
-  noStroke();
+  text("MISSION COMPLETED", width / 2, height / 2 - 180);
+noStroke();
   fill(255, 255, 255, tetrisGameOverGuideAlpha);
   textSize(64);
-  text("GAME OVER", width / 2, height / 2 - 180);
-  pop();
+  text("MISSION COMPLETED", width / 2, height / 2 - 180);
+pop();
 
   // --- Draw celebrateCharImg above the text box, both moved down a bit ---
   const charY = height / 2 + 80; // moved down
@@ -2515,45 +2232,4 @@ function drawTetrisGameOverGuide() {
   // Store button area for click
   drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 }
-  fill(255, tetrisGameOverGuideAlpha);
-  textAlign(CENTER, TOP);
-  textSize(30);
-  textFont('monospace');
-  for (let i = 0; i < lines.length; i++) {
-    text(lines[i], width / 2, boxY + 32 + i * lineH);
-  }
-  pop();
-
-  // Draw "Next" button centered below the text box
-  let btnW = 180, btnH = 54;
-  let btnX = width / 2 - btnW / 2;
-  let btnY = boxY + boxH + 28;
-
-  // Hover detection for continue button
-  if (
-    mouseX > btnX && mouseX < btnX + btnW &&
-    mouseY > btnY && mouseY < btnY + btnH
-  ) {
-    tetrisGameOverGuideBtnHovered = true;
-    cursor(HAND);
-  } else {
-    tetrisGameOverGuideBtnHovered = false;
-    cursor(ARROW);
-  }
-
-  push();
-  fill(tetrisGameOverGuideBtnHovered ? color(80, 200, 255, tetrisGameOverGuideAlpha) : color(50, 50, 50, tetrisGameOverGuideAlpha));
-  stroke(255, tetrisGameOverGuideAlpha);
-  strokeWeight(3);
-  rect(btnX, btnY, btnW, btnH, 12);
-  noStroke();
-  fill(255, tetrisGameOverGuideAlpha);
-  textAlign(CENTER, CENTER);
-  textSize(26);
-  textFont('monospace');
-  text("Next", btnX + btnW / 2, btnY + btnH / 2);
-  pop();
-
-  // Store button area for click
-  drawTetrisGameOverGuide.btn = { x: btnX, y: btnY, w: btnW, h: btnH };
 
