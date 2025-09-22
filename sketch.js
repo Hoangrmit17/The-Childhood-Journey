@@ -109,6 +109,11 @@ let missionFireworksStartTime = 0;
  // camera.png
  // Element1.png to Element5.png
 
+// --- Sound variables ---
+let bgMusic;
+let btnSound;
+let musicStarted = false;
+
 function preload() {
   characterImg = loadImage('character.png');
   for (let i = 0; i < 8; i++) {
@@ -120,6 +125,10 @@ function preload() {
   celebrateCharImg = loadImage('celebrate char.png'); // Load celebration character
   smartphoneImg = loadImage('smartphone.png'); // Load your provided smartphone image
   endingBgImg = loadImage('ending.png'); // <-- Add this line
+  // --- Load sounds ---
+  soundFormats('mp3', 'wav', 'ogg');
+  bgMusic = loadSound('bgmusic.mp3'); // Place your background music file in the project folder
+  btnSound = loadSound('button.mp3'); // Place your button sound effect file in the project folder
   // Optionally, load arrow overlays if you want custom arrow images
   // tetrisArrowImgs[0] = loadImage('arrow_up.png');
   // tetrisArrowImgs[1] = loadImage('arrow_down.png');
@@ -177,6 +186,7 @@ function setup() {
     });
   }
   // Setup webcam but hide it (draw manually)
+  userStartAudio();
 }
 
 let nextBtn = {
@@ -193,6 +203,14 @@ let loadingProgress = 0;
 let loadingDone = false;
 
 function draw() {
+  // --- Start music if not started and loaded ---
+  if (!musicStarted && bgMusic && bgMusic.isLoaded()) {
+    bgMusic.setLoop(true);
+    bgMusic.setVolume(0.4);
+    bgMusic.play();
+    musicStarted = true;
+  }
+
   // Final loading and final scene (camera removed)
   if (showFinalLoading) { drawFinalLoading(); return; }
   if (showFinalScene) { drawFinalScene(); return; }
@@ -833,7 +851,7 @@ function createFirework() {
       for (let p of this.particles) {
         noStroke();
         fill(red(p.color), green(p.color), blue(p.color), p.alpha);
-        rect(p.x, p.y, 6, 6, 2);
+        rect(p.x, p.y, 6, 6);
       }
     },
     done() {
@@ -1478,6 +1496,7 @@ function mousePressed() {
   // Handle Mission Completed clicks
   if (showMissionComplete) {
     if (missionBtnHovered === 'yes') {
+      playBtnSound();
       // Go back to Intro scene
       showMissionComplete = false;
       showPark = false;
@@ -1499,6 +1518,7 @@ function mousePressed() {
       missionFireworks = [];
       return;
     } else if (missionBtnHovered === 'no') {
+      playBtnSound();
       // Show fireworks effect
       showMissionFireworks = true;
       missionFireworksStartTime = millis();
@@ -1516,6 +1536,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length -  1) {
         tetrisGameOverGuideTextIndex++;
       } else {
@@ -1542,6 +1563,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (guideTextIndex < guideTextList.length - 1) {
         guideTextIndex++;
       } else {
@@ -1561,6 +1583,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (celebrateGuideTextIndex < celebrateGuideTextList.length - 1) {
         celebrateGuideTextIndex++;
       } else {
@@ -1585,6 +1608,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (tetrisGuideTextIndex < tetrisGuideTextList.length - 1) {
         tetrisGuideTextIndex++;
       } else {
@@ -1636,6 +1660,7 @@ function mousePressed() {
       mouseY > nextBtn.y &&
       mouseY < nextBtn.y + nextBtn.h
     ) {
+      playBtnSound();
       boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
       boardText = boardTexts[boardTextIndex];
       // If last text, start loading transition
@@ -1699,6 +1724,7 @@ function mousePressed() {
   // Handle Mission Completed clicks
   if (showMissionComplete) {
     if (missionBtnHovered === 'yes') {
+      playBtnSound();
       // Go back to Intro scene
       showMissionComplete = false;
       showPark = false;
@@ -1720,6 +1746,7 @@ function mousePressed() {
       missionFireworks = [];
       return;
     } else if (missionBtnHovered === 'no') {
+      playBtnSound();
       // Show fireworks effect
       showMissionFireworks = true;
       missionFireworksStartTime = millis();
@@ -1737,6 +1764,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (tetrisGameOverGuideTextIndex < tetrisGameOverGuideTextList.length -  1) {
         tetrisGameOverGuideTextIndex++;
       } else {
@@ -1763,6 +1791,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (guideTextIndex < guideTextList.length - 1) {
         guideTextIndex++;
       } else {
@@ -1782,6 +1811,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (celebrateGuideTextIndex < celebrateGuideTextList.length - 1) {
         celebrateGuideTextIndex++;
       } else {
@@ -1806,6 +1836,7 @@ function mousePressed() {
       mouseX > btn.x && mouseX < btn.x + btn.w &&
       mouseY > btn.y && mouseY < btn.y + btn.h
     ) {
+      playBtnSound();
       if (tetrisGuideTextIndex < tetrisGuideTextList.length - 1) {
         tetrisGuideTextIndex++;
       } else {
@@ -1817,7 +1848,7 @@ function mousePressed() {
   }
 
   if (showTetrisLoading) {
-    return;
+   return;
   }
 
   if (showTetris) {
@@ -1847,7 +1878,6 @@ function mousePressed() {
   if (
     // Remove !showCameraScene from this condition
     !showGuide && !showPark && !loading && !showTetrisLoading &&
-   
     !showTetris && !showCelebrateGuide && !showTetrisGuide && !showTetrisGameOverGuide &&
     !showFinalLoading && !showFinalScene
   ) {
@@ -1858,6 +1888,7 @@ function mousePressed() {
       mouseY > nextBtn.y &&
       mouseY < nextBtn.y + nextBtn.h
     ) {
+      playBtnSound();
       boardTextIndex = (boardTextIndex + 1) % boardTexts.length;
       boardText = boardTexts[boardTextIndex];
       // If last text, start loading transition
@@ -2121,7 +2152,14 @@ class TetrisGame {
   }
 }
 
-// Add this function if not present (drawTetrisGameOverGuide):
+// --- Button sound effect integration ---
+function playBtnSound() {
+  if (btnSound && btnSound.isLoaded()) {
+    btnSound.play();
+  }
+}
+
+// --- Update this utility function for Tetris Game Over Guide ---
 function drawTetrisGameOverGuide() {
   // Fade in
   tetrisGameOverGuideAlpha = min(tetrisGameOverGuideAlpha + 10, 255);
